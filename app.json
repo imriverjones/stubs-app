@@ -54,8 +54,13 @@
           },
           "android": {
             "enabled": true,
-            "singleShareMimeTypes": ["application/pdf", "image/*"],
-            "multipleShareMimeTypes": ["image/*"]
+            "singleShareMimeTypes": [
+              "application/pdf",
+              "image/*"
+            ],
+            "multipleShareMimeTypes": [
+              "image/*"
+            ]
           }
         }
       ],
@@ -76,6 +81,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5dd43598-b43c-40bb-9dbb-4e119738bc04"
+      }
     }
   }
 }
