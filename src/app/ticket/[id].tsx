@@ -4,9 +4,9 @@ import { useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
-  FlatList,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -73,7 +73,10 @@ export default function TicketScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.scrollBody, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}
+    >
       <View style={[styles.topBar, { paddingHorizontal: H_PAD }]}>
         <RoundButton label="Back" onPress={() => router.back()} size={44}>
           <Icon name="back" color={colors.paper} />
@@ -92,22 +95,21 @@ export default function TicketScreen() {
         </RoundButton>
       </View>
 
-      <FlatList
-        data={stub.tickets}
-        keyExtractor={(t) => t.id}
+      <ScrollView
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         style={{ flexGrow: 0 }}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
-        renderItem={({ item, index }) => (
-          <View style={{ width, paddingHorizontal: H_PAD }}>
+      >
+        {stub.tickets.map((item, index) => (
+          <View key={item.id} style={{ width, paddingHorizontal: H_PAD }}>
             <TicketCard stub={stub} index={index} codeSize={codeSize}>
               <CodeView ticket={item} size={codeSize} />
             </TicketCard>
           </View>
-        )}
-      />
+        ))}
+      </ScrollView>
 
       {count > 1 && (
         <View style={styles.dots} accessibilityLabel={`Ticket ${page + 1} of ${count}. Swipe for the next one.`}>
@@ -117,7 +119,7 @@ export default function TicketScreen() {
         </View>
       )}
 
-      <View style={{ flex: 1 }} />
+      <View style={{ flex: 1, minHeight: 8 }} />
 
       <View style={{ paddingHorizontal: H_PAD }}>
         <Pressable
@@ -128,8 +130,17 @@ export default function TicketScreen() {
           <Text style={styles.outlineText}>View original</Text>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
+}
+
+/** Long names step down in size instead of being cut off. */
+function titleSize(title: string) {
+  const n = title.length;
+  if (n <= 18) return { fontSize: 38 };
+  if (n <= 32) return { fontSize: 32 };
+  if (n <= 48) return { fontSize: 27 };
+  return { fontSize: 23 };
 }
 
 function TicketCard({ stub, index, children }: { stub: Stub; index: number; codeSize: number; children: React.ReactNode }) {
@@ -148,9 +159,7 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
             {kind}
             {count > 1 ? ` · ${index + 1} of ${count}` : ''}
           </Text>
-          <Text style={styles.cardTitle} numberOfLines={3} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {stub.title}
-          </Text>
+          <Text style={[styles.cardTitle, titleSize(stub.title)]}>{stub.title}</Text>
           <View style={styles.grid}>
             <Field label="Date" value={`${relativeDay(stub.date) === 'Today' ? 'Today · ' : ''}${fmt.short(stub.date)}`} />
             {stub.time ? <Field label="Time" value={stub.time} /> : null}
@@ -180,13 +189,14 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.accent, gap: 16 },
+  screen: { flex: 1, backgroundColor: colors.accent },
+  scrollBody: { flexGrow: 1, gap: 16 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   counter: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   counterText: { fontFamily: fonts.monoBold, fontSize: 13, color: colors.paper },
   cardTop: { padding: 22, paddingBottom: 18, gap: 12 },
   cardLabel: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: colors.inkSoft },
-  cardTitle: { fontFamily: fonts.display, fontSize: 38, lineHeight: 42, textTransform: 'uppercase', color: colors.ink },
+  cardTitle: { fontFamily: fonts.display, fontSize: 38, textTransform: 'uppercase', color: colors.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 28, rowGap: 10 },
   fieldBox: { gap: 2 },
   fieldLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.inkFaint },

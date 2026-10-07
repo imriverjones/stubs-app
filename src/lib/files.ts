@@ -32,9 +32,11 @@ export function titleFromFileName(name: string | null | undefined): string {
   if (!name) return '';
   const base = name.replace(/\.[a-z0-9]{2,5}$/i, '');
   if (/^(IMG|Screenshot|image|photo|PXL)[ _-]?\d/i.test(base) || /^[0-9a-f-]{20,}$/i.test(base)) return '';
-  return base
+  const words = base
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 60);
+    .trim();
+  // Drop filler like "Ticket", "Your tickets", "E-ticket" from the front.
+  const cleaned = words.replace(/^((your|my|the|e|mobile|print at home)\s+)*(e ?tickets?|tickets?|booking|confirmation)\b[\s:.-]*/i, '').trim();
+  return (cleaned || words).slice(0, 60);
 }

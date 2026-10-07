@@ -1,4 +1,3 @@
-import { Anton_400Regular } from '@expo-google-fonts/anton';
 import {
   SpaceGrotesk_400Regular,
   SpaceGrotesk_500Medium,
@@ -36,7 +35,7 @@ function useReminderTaps(ready: boolean) {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    Anton_400Regular,
+    StubsDisplay: require('../../assets/fonts/StubsDisplay.ttf'),
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_700Bold,

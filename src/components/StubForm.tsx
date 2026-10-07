@@ -183,8 +183,7 @@ const styles = StyleSheet.create({
   cardTop: { padding: 20, gap: 8 },
   titleInput: {
     fontFamily: fonts.display,
-    fontSize: 36,
-    lineHeight: 42,
+    fontSize: 34,
     textTransform: 'uppercase',
     color: colors.ink,
     padding: 0,

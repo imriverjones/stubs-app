@@ -17,7 +17,7 @@ export const colors = {
 } as const;
 
 export const fonts = {
-  display: 'Anton_400Regular',
+  display: 'StubsDisplay',
   body: 'SpaceGrotesk_400Regular',
   bodyMedium: 'SpaceGrotesk_500Medium',
   bodyBold: 'SpaceGrotesk_700Bold',

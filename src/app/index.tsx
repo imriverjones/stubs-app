@@ -116,6 +116,13 @@ export default function Home() {
   );
 }
 
+function todayTitleSize(title: string) {
+  const n = title.length;
+  if (n <= 18) return { fontSize: 40 };
+  if (n <= 32) return { fontSize: 33 };
+  return { fontSize: 27 };
+}
+
 function TodayCard({ stub }: { stub: Stub }) {
   return (
     <Pressable
@@ -136,9 +143,7 @@ function TodayCard({ stub }: { stub: Stub }) {
               </View>
               <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
             </View>
-            <Text style={styles.todayTitle} numberOfLines={3}>
-              {stub.title}
-            </Text>
+            <Text style={[styles.todayTitle, todayTitleSize(stub.title)]}>{stub.title}</Text>
             <Text style={styles.todaySub}>{stub.time ? `Starts ${stub.time}` : 'Today'}</Text>
           </View>
         }
@@ -239,7 +244,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, gap: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  wordmark: { fontFamily: fonts.display, fontSize: 48, lineHeight: 54, textTransform: 'uppercase', color: colors.ink },
+  wordmark: { fontFamily: fonts.display, fontSize: 48, textTransform: 'uppercase', color: colors.ink },
   section: { gap: 10 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
@@ -247,7 +252,7 @@ const styles = StyleSheet.create({
   todayBottom: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
   tag: { backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.ink },
-  todayTitle: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44, textTransform: 'uppercase', color: colors.nightText },
+  todayTitle: { fontFamily: fonts.display, fontSize: 40, textTransform: 'uppercase', color: colors.nightText },
   todaySub: { fontFamily: fonts.mono, fontSize: 13, color: '#D6D6CF' },
   todayMeta: { fontFamily: fonts.mono, fontSize: 12, color: colors.nightSoft },
   pill: {
@@ -263,7 +268,7 @@ const styles = StyleSheet.create({
 
   row: { backgroundColor: colors.paper, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', height: 76 },
   rowDate: { width: 74, alignItems: 'center', justifyContent: 'center' },
-  rowDay: { fontFamily: fonts.display, fontSize: 30, lineHeight: 34, color: colors.ink },
+  rowDay: { fontFamily: fonts.display, fontSize: 30, color: colors.ink },
   rowDow: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.inkSoft },
   rowRule: { borderLeftWidth: 2, borderStyle: 'dashed', borderColor: colors.perforation, marginVertical: 10 },
   rowBody: { flex: 1, paddingHorizontal: 16, justifyContent: 'center', gap: 4 },
@@ -286,7 +291,7 @@ const styles = StyleSheet.create({
   outlineBtnText: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink },
 
   emptyTop: { padding: 22, gap: 10 },
-  emptyTitle: { fontFamily: fonts.display, fontSize: 44, lineHeight: 48, textTransform: 'uppercase', color: colors.ink },
+  emptyTitle: { fontFamily: fonts.display, fontSize: 44, textTransform: 'uppercase', color: colors.ink },
   emptyBody: { fontFamily: fonts.body, fontSize: 16, lineHeight: 23, color: colors.inkSoft },
   emptyBottom: { padding: 20 },
   primary: {
