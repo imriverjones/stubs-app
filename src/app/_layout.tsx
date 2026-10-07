@@ -37,7 +37,7 @@ function useReminderTaps(ready: boolean) {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     StubsDisplay: require('../../assets/fonts/StubsDisplay.ttf'),
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
@@ -53,7 +53,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) syncLockScreen();
   }, [loaded, stubs, lockScreen]);
-  const ready = fontsLoaded && loaded;
+  // Never sit on the splash screen: if a font fails, carry on with system fonts.
+  const ready = (fontsLoaded || !!fontError) && loaded;
 
   useEffect(() => {
     load().then(() => {
