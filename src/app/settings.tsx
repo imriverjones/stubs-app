@@ -1,11 +1,13 @@
 import Constants from 'expo-constants';
-import { router } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
-import { setSettings, useStore } from '../lib/store';
+import { ensurePermission, reminderStatus, type ReminderStatus } from '../lib/reminders';
+import { ensureReminders, setSettings, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 
 const KEEP = [
@@ -18,6 +20,14 @@ const KEEP = [
 export default function Settings() {
   const keep = useStore((s) => s.settings.keepPastDays);
   const count = useStore((s) => s.stubs.length);
+  const [reminders, setReminders] = useState<ReminderStatus | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      reminderStatus().then(setReminders);
+      const sub = AppState.addEventListener('change', (st) => st === 'active' && reminderStatus().then(setReminders));
+      return () => sub.remove();
+    }, []),
+  );
   const lockScreen = useStore((s) => s.settings.lockScreen);
   const shots = useStore((s) => s.settings.screenshots);
   const insets = useSafeAreaInsets();
@@ -92,8 +102,27 @@ export default function Settings() {
         <Text style={styles.body}>
           8am on the day, or 2 hours before if the ticket has a time. Tap the notification to jump straight to the code.
         </Text>
-        <Pressable accessibilityRole="button" onPress={() => Linking.openSettings()} style={styles.row}>
-          <Text style={styles.rowText}>Notification settings</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={async () => {
+            if (reminders === 'ask') {
+              await ensurePermission();
+              await ensureReminders();
+              setReminders(await reminderStatus());
+            } else {
+              Linking.openSettings();
+            }
+          }}
+          style={styles.row}
+        >
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowText}>
+              {reminders === 'on' ? 'Reminders are on' : reminders === 'ask' ? 'Turn on reminders' : 'Reminders are off'}
+            </Text>
+            <Text style={styles.note}>
+              {reminders === 'off' ? 'Tap to allow notifications in iPhone Settings.' : reminders === 'on' ? 'Notification settings' : 'Stubs needs permission to remind you.'}
+            </Text>
+          </View>
           <Icon name="arrow" size={16} color={colors.ink} />
         </Pressable>
       </View>

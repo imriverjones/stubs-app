@@ -46,6 +46,14 @@ npm start                        # then open the Stubs dev build on your phone
 
 For a build to try without the dev server: `npm run build:preview`.
 
+## Updates without a new build
+
+JavaScript-only changes (anything under `src/` or `assets/`) ship over the air: pushing to `main` runs `.github/workflows/ship-update.yml`, which publishes an EAS Update to the `production` channel. Phones pick it up the next time Stubs opens and show "Stubs update ready → Restart".
+
+Needs one repo secret: `EXPO_TOKEN` (expo.dev → Account settings → Access tokens).
+
+Changes to `package.json`, `app.json`, `eas.json` or `modules/` need a new build: bump `version` in `app.json` (it's the runtime version) and run `eas build`.
+
 ## Checks
 
 ```bash

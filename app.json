@@ -3,7 +3,7 @@
     "name": "Stubs",
     "slug": "stubs",
     "scheme": "stubs",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -105,6 +105,14 @@
       "eas": {
         "projectId": "5dd43598-b43c-40bb-9dbb-4e119738bc04"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5dd43598-b43c-40bb-9dbb-4e119738bc04",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     }
   }
 }

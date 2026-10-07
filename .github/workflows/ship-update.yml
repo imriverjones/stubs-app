@@ -1,0 +1,59 @@
+# Sends JavaScript-only changes straight to phones as an over-the-air update.
+# Anything that touches native code or app config is skipped: that needs a new build.
+name: Ship update
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ship-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check the change is JavaScript-only
+        id: guard
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          echo "$changed"
+          if echo "$changed" | grep -Eq '^(package\.json|package-lock\.json|app\.json|eas\.json|modules/)'; then
+            echo "Native code or app config changed: run a new build instead of an update."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          elif echo "$changed" | grep -Eq '^(src/|assets/)'; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing the app uses changed."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.ok == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        if: steps.guard.outputs.ok == 'true'
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+        if: steps.guard.outputs.ok == 'true'
+
+      - name: Publish update to the production channel
+        if: steps.guard.outputs.ok == 'true'
+        env:
+          MESSAGE: ${{ github.event.head_commit.message || 'Manual update' }}
+        run: eas update --channel production --platform ios --message "$(echo "$MESSAGE" | head -n1)" --non-interactive

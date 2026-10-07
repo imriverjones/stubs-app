@@ -24,17 +24,34 @@ export function configureNotifications() {
   });
 }
 
-let permission: boolean | null = null;
+export type ReminderStatus = 'on' | 'off' | 'ask';
 
+/** 'ask' = iOS hasn't shown the permission prompt yet. */
+export async function reminderStatus(): Promise<ReminderStatus> {
+  if (Platform.OS === 'web') return 'off';
+  try {
+    const p = await Notifications.getPermissionsAsync();
+    if (p.granted || p.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) return 'on';
+    return p.canAskAgain ? 'ask' : 'off';
+  } catch {
+    return 'off';
+  }
+}
+
+/** Shows the iOS prompt if it hasn't been shown yet. Never caches a "no", so a later yes in Settings is picked up. */
 export async function ensurePermission(): Promise<boolean> {
-  if (permission != null) return permission;
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return (permission = true);
-  if (!current.canAskAgain) return (permission = false);
-  const asked = await Notifications.requestPermissionsAsync({
-    ios: { allowAlert: true, allowSound: true, allowBadge: false },
-  });
-  return (permission = asked.granted);
+  const status = await reminderStatus();
+  if (status === 'on') return true;
+  if (status === 'off') return false;
+  try {
+    const asked = await Notifications.requestPermissionsAsync({
+      ios: { allowAlert: true, allowSound: true, allowBadge: false },
+    });
+    return asked.granted;
+  } catch (e) {
+    console.warn('Notification permission request failed', e);
+    return false;
+  }
 }
 
 export async function scheduleReminder(stub: Stub): Promise<string | undefined> {
@@ -44,14 +61,19 @@ export async function scheduleReminder(stub: Stub): Promise<string | undefined> 
   if (!(await ensurePermission())) return undefined;
 
   const count = stub.tickets.length;
-  return Notifications.scheduleNotificationAsync({
-    content: {
-      title: stub.time ? `${stub.title} at ${stub.time}` : `Today: ${stub.title}`,
-      body: count > 1 ? `Tap to open your ${count} tickets.` : 'Tap to open your ticket.',
-      data: { stubId: stub.id },
-    },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
-  });
+  try {
+    return await Notifications.scheduleNotificationAsync({
+      content: {
+        title: stub.time ? `${stub.title} at ${stub.time}` : `Today: ${stub.title}`,
+        body: count > 1 ? `Tap to open your ${count} tickets.` : 'Tap to open your ticket.',
+        data: { stubId: stub.id },
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
+    });
+  } catch (e) {
+    console.warn('Could not schedule reminder', e);
+    return undefined;
+  }
 }
 
 export async function cancelReminder(id?: string) {

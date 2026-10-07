@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { addDays, dayKey } from './dates';
 import { dbFile, deleteStubFiles } from './files';
-import { cancelReminder, scheduleReminder } from './reminders';
+import { cancelReminder, ensurePermission, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
 
 type State = {
@@ -163,6 +163,29 @@ export function setSettings(patch: Partial<Settings>) {
   set({ settings: { ...state.settings, ...patch } });
   persist();
   cleanUp();
+}
+
+/**
+ * Asks for notification permission if there are upcoming tickets, then schedules any
+ * reminder that's missing (e.g. tickets saved before permission was given).
+ */
+export async function ensureReminders() {
+  const upcoming = state.stubs.filter((s) => s.date >= dayKey());
+  if (!upcoming.length || !(await ensurePermission())) return;
+  let changed = false;
+  const next = await Promise.all(
+    state.stubs.map(async (s) => {
+      if (s.reminderId || s.date < dayKey()) return s;
+      const reminderId = await scheduleReminder(s);
+      if (!reminderId) return s;
+      changed = true;
+      return { ...s, reminderId };
+    }),
+  );
+  if (changed) {
+    set({ stubs: next });
+    persist();
+  }
 }
 
 export function setLockCard(lockCard: State['lockCard']) {

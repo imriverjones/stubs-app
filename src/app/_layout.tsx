@@ -16,7 +16,8 @@ import { ToastHost } from '../components/Toast';
 import { configureNotifications } from '../lib/reminders';
 import { syncLockScreen } from '../lib/lockscreen';
 import { checkRecentScreenshots } from '../lib/screenshots';
-import { cleanUp, load, useStore } from '../lib/store';
+import { cleanUp, ensureReminders, load, useStore } from '../lib/store';
+import { useOtaUpdates } from '../lib/useOtaUpdates';
 import { colors } from '../theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -55,10 +56,14 @@ export default function RootLayout() {
   const ready = fontsLoaded && loaded;
 
   useEffect(() => {
-    load().then(checkRecentScreenshots);
+    load().then(() => {
+      ensureReminders();
+      checkRecentScreenshots();
+    });
     const sub = AppState.addEventListener('change', (s) => {
       if (s !== 'active') return;
       cleanUp();
+      ensureReminders();
       checkRecentScreenshots();
       syncLockScreen();
     });
@@ -70,6 +75,7 @@ export default function RootLayout() {
   }, [ready]);
 
   useReminderTaps(ready);
+  useOtaUpdates();
 
   if (!ready) return null;
 
