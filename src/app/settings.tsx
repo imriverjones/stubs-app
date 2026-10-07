@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
-import { ensurePermission, reminderStatus, type ReminderStatus } from '../lib/reminders';
+import { reminderStatus, type ReminderStatus } from '../lib/reminders';
 import { ensureReminders, setSettings, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 
@@ -82,7 +82,7 @@ export default function Settings() {
           <View style={styles.row}>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.rowText}>Spot tickets in screenshots</Text>
-              <Text style={styles.note}>Checked on this phone when you open Stubs.</Text>
+              <Text style={styles.note}>Checked on this phone when you open Stash.</Text>
             </View>
             <Switch
               value={shots === 'on'}
@@ -106,8 +106,7 @@ export default function Settings() {
           accessibilityRole="button"
           onPress={async () => {
             if (reminders === 'ask') {
-              await ensurePermission();
-              await ensureReminders();
+              await ensureReminders(true);
               setReminders(await reminderStatus());
             } else {
               Linking.openSettings();
@@ -120,7 +119,7 @@ export default function Settings() {
               {reminders === 'on' ? 'Reminders are on' : reminders === 'ask' ? 'Turn on reminders' : 'Reminders are off'}
             </Text>
             <Text style={styles.note}>
-              {reminders === 'off' ? 'Tap to allow notifications in iPhone Settings.' : reminders === 'on' ? 'Notification settings' : 'Stubs needs permission to remind you.'}
+              {reminders === 'off' ? 'Tap to allow notifications in iPhone Settings.' : reminders === 'on' ? 'Tip: set Banner Style to Persistent so they stay on screen' : 'Stash needs permission to remind you.'}
             </Text>
           </View>
           <Icon name="arrow" size={16} color={colors.ink} />
@@ -130,12 +129,12 @@ export default function Settings() {
       <View style={styles.block}>
         <Text style={label}>Privacy</Text>
         <Text style={styles.body}>
-          Your tickets never leave this phone. No account, no server. Codes are read on-device.
+          Your tickets never leave this phone unless you send them. No account, no server. Codes are read on-device.
         </Text>
       </View>
 
       <Text style={styles.footer}>
-        Stubs {Constants.expoConfig?.version ?? ''} · {count} ticket{count === 1 ? '' : 's'} stored
+        Stash {Constants.expoConfig?.version ?? ''} · {count} ticket{count === 1 ? '' : 's'} stored
       </Text>
     </ScrollView>
   );

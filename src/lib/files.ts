@@ -38,5 +38,7 @@ export function titleFromFileName(name: string | null | undefined): string {
     .trim();
   // Drop filler like "Ticket", "Your tickets", "E-ticket" from the front.
   const cleaned = words.replace(/^((your|my|the|e|mobile|print at home)\s+)*(e ?tickets?|tickets?|booking|confirmation)\b[\s:.-]*/i, '').trim();
-  return (cleaned || words).slice(0, 60);
+  // Tickets sent from Stash arrive as "Title – ticket 2"; keep just the title.
+  const unsent = (cleaned || words).replace(/\s*[–-]\s*ticket\s*\d+$/i, '').trim();
+  return unsent.slice(0, 60);
 }

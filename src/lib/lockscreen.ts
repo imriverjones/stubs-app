@@ -34,7 +34,7 @@ function pick(stubs: Stub[]): Stub | null {
   const today = dayKey();
   const now = Date.now();
   const candidates = stubs.filter((s) => {
-    if (s.date !== today) return false;
+    if (s.date !== today || s.usedAt) return false;
     if (!s.time) return true;
     return toDate(s.date, s.time).getTime() + LINGER_MS > now;
   });
@@ -60,29 +60,29 @@ export function summary(details: Detail[] | undefined, max = 2): string {
 }
 
 /** Copy the first ticket's code image somewhere the Live Activity can read it. */
-function codeImage(stub: Stub): string {
+async function codeImage(stub: Stub): Promise<string> {
   const dir = widgetsDir();
   const crop = stub.tickets.find((t) => t.code?.cropUri)?.code?.cropUri;
   if (!dir || !crop) return '';
   try {
     const dest = new File(dir.endsWith('/') ? dir : `${dir}/`, `code-${stub.id}.png`);
-    if (!dest.exists) new File(crop).copy(dest);
+    if (!dest.exists) await new File(crop).copy(dest);
     return dest.uri;
   } catch {
     return '';
   }
 }
 
-function propsFor(stub: Stub) {
+async function propsFor(stub: Stub) {
   const kind = KINDS.find((k) => k.id === stub.kind)?.label ?? 'Ticket';
   const n = stub.tickets.length;
   const first = stub.tickets[0];
   return {
-    title: stub.title,
+    title: stub.title.toUpperCase(),
     label: `${kind}${n > 1 ? ` · ${n} TICKETS` : ''}`.toUpperCase(),
     when: stub.time ?? 'Today',
     detail: summary([...(first?.details ?? []), ...(stub.details ?? [])]),
-    code: codeImage(stub),
+    code: await codeImage(stub),
   };
 }
 
@@ -123,9 +123,9 @@ export async function syncLockScreen() {
       : toDate(target.date, '23:59');
 
     if (current) {
-      await current.update(propsFor(target), ends);
+      await current.update(await propsFor(target), ends);
     } else {
-      const started = Factory.start(propsFor(target), `stubs://ticket/${target.id}`, ends);
+      const started = Factory.start(await propsFor(target), `stubs://ticket/${target.id}`, ends);
       setLockCard({ activityId: started.getId(), stubId: target.id });
     }
   } catch (e) {

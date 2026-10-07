@@ -12,6 +12,7 @@ const paths = {
   chevronUp: 'M6 15l6-6 6 6',
   doc: 'M7 3h7l5 5v13H7zM14 3v5h5',
   photo: 'M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4',
+  ticket: 'M4 7a2 2 0 0 0 2-2h12a2 2 0 0 0 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0-2 2H6a2 2 0 0 0-2-2v-3a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2',
 } as const;
 
 type Name = keyof typeof paths | 'more';

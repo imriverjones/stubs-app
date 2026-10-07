@@ -9,7 +9,7 @@ export default function Edit() {
 
   return (
     <StubForm
-      heading="Edit stub"
+      heading="Edit ticket"
       stub={stub}
       saveLabel="Save changes"
       onCancel={() => router.back()}

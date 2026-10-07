@@ -63,7 +63,7 @@ export default function HandleShare() {
           <Text style={styles.title}>Hmm.</Text>
           <Text style={styles.body}>{message}</Text>
           <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={styles.btn}>
-            <Text style={styles.btnText}>Back to stubs</Text>
+            <Text style={styles.btnText}>Back to Stash</Text>
           </Pressable>
         </>
       ) : (

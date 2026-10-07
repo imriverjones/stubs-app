@@ -58,7 +58,7 @@ export function useAddTicket() {
           options,
           cancelButtonIndex: options.length - 1,
           title: 'Add a ticket',
-          message: 'Tip: in Mail or Safari, tap Share → Stubs.',
+          message: 'Tip: in Mail or Safari, tap Share → Stash.',
         },
         handle,
       );

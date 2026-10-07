@@ -2,8 +2,8 @@
 // booking reference and so on. Pure functions, no I/O, so it's easy to test.
 import type { Detail, Kind } from './types';
 
-/** A page's text and how many tickets the importer made from it. */
-export type PageText = { text: string; codes: number };
+/** A page's text, how many tickets the importer made from it, and those tickets' barcode contents. */
+export type PageText = { text: string; codes: number; payloads?: (string | undefined)[] };
 
 export type Extracted = {
   date?: string; // YYYY-MM-DD
@@ -37,10 +37,14 @@ const LABELS: LabelDef[] = [
   { label: 'Door', wordValues: true, words: ['door', 'turnstile', 'portal', 'vomitory'] },
   { label: 'Platform', words: ['platform', 'gleis', 'binario', 'andén', 'quai'] },
   { label: 'Deck', wordValues: true, words: ['deck', 'class'] },
-  { label: 'Doors', words: ['doors', 'doors open', 'gates open', 'einlass', 'boarding', 'boarding time', 'check-in closes'], value: TIME_VALUE },
+  { label: 'Doors', words: ['doors', 'doors open', 'gates open', 'einlass', 'check-in closes'], value: TIME_VALUE },
+  { label: 'Boarding', words: ['boarding', 'boarding time', 'boards', 'boarding starts'], value: TIME_VALUE },
+  { label: 'Terminal', wordValues: true, words: ['terminal', 'term'] },
+  { label: 'Group', words: ['boarding group', 'group', 'zone', 'boarding zone', 'priority'], perTicket: true },
+  { label: 'Flight', words: ['flight', 'flight no', 'flight number', 'flug', 'volo', 'vuelo', 'vol'], value: /^[A-Z0-9]{2,3}\s?\d{1,4}[A-Z]?$/i },
   {
     label: 'Ref',
-    words: ['booking reference', 'booking ref', 'booking no', 'booking number', 'booking code', 'reference', 'ref', 'order', 'order no', 'order number', 'confirmation', 'confirmation code', 'pnr', 'reservation', 'reservation no', 'ticket no', 'ticket number', 'buchungsnummer', 'κωδικός κράτησης'],
+    words: ['booking reference', 'booking ref', 'booking no', 'booking number', 'booking code', 'reference', 'ref', 'order', 'order no', 'order number', 'confirmation', 'confirmation code', 'pnr', 'reservation', 'reservation no', 'ticket no', 'ticket number', 'visa number', 'visa no', 'application number', 'application no', 'permit number', 'authorisation number', 'authorization number', 'buchungsnummer', 'κωδικός κράτησης'],
     value: REF,
   },
 ];
@@ -80,6 +84,13 @@ function cleanValue(def: LabelDef, raw: string): string | null {
   if (def.value === TIME_VALUE) {
     const t = parseTime(v);
     return t ?? null;
+  }
+  if (def.value && def.value !== REF) {
+    const parts = v.split(/\s+/);
+    const two = parts.slice(0, 2).join(' ');
+    const one = parts[0];
+    const hit = [two, one].find((c) => def.value!.test(c));
+    return hit ? hit.replace(/\s+/, '').toUpperCase() : null;
   }
   if (def.value === REF) {
     v = v.split(/\s/)[0];
@@ -234,8 +245,8 @@ function parseTime(s: string): string | null {
   return `${pad(h)}:${pad(min)}`;
 }
 
-const TIME_GOOD = /\b(depart|departure|departs|dep|start|starts|show|kick.?off|performance|time|sailing|boarding|abfahrt|partenza|salida|αναχώρηση)\b/i;
-const TIME_DOORS = /\b(doors|gates open|einlass|check.?in)\b/i;
+const TIME_GOOD = /\b(depart|departure|departs|dep|start|starts|show|kick.?off|performance|time|sailing|abfahrt|partenza|salida|αναχώρηση)\b/i;
+const TIME_DOORS = /\b(doors|gates open|einlass|check.?in|boarding)\b/i;
 
 function findTime(lines: string[], dateLine: number | undefined): string | undefined {
   const timeOn = (l: string) => (BAD_CONTEXT.test(l) ? null : parseTime(l));
@@ -267,7 +278,11 @@ function guessKind(text: string): Kind | undefined {
   if (/\b(boarding pass|flight|airline|terminal)\b/.test(t)) return 'flight';
   if (/\b(train|rail|railway|platform|coach [a-z]\b|carriage|bahn|trenitalia|eurostar)\b/.test(t)) return 'train';
   if (/\b(bus|ktel|flixbus|national express|megabus)\b/.test(t)) return 'bus';
+  if (/\b(e-?visa|visa|esta|electronic travel authori[sz]ation|entry permit)\b/.test(t)) return 'visa';
+  if (/\b(car hire|car rental|rental agreement|pick-?up location|hertz|avis|europcar|sixt|enterprise rent|parking)\b/.test(t)) return 'car';
+  if (/\b(appointment|clinic|hospital|vaccination|vaccine|pharmacy|gp|dentist|medical)\b/.test(t)) return 'medical';
   if (/\b(concert|gig|tour|live|festival|doors open|support act|arena|academy)\b/.test(t)) return 'gig';
+  if (/\b(excursion|activity|experience|lesson|class|cruise|boat trip|museum|waterpark|aquapark|theme park|zoo)\b/.test(t)) return 'activity';
   if (/\b(admission|entry|museum|park|tickets?)\b/.test(t)) return 'event';
   return undefined;
 }
@@ -296,6 +311,49 @@ function findRoute(lines: string[]): string | undefined {
 const titleCase = (s: string) =>
   s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase()) : s;
 
+// ---------- boarding passes (IATA BCBP, the standard in airline barcodes) ----------
+
+export type BoardingPass = {
+  name: string;
+  ref: string;
+  from: string;
+  to: string;
+  flight: string;
+  date?: string;
+  seat?: string;
+};
+
+export function parseBoardingPass(payload: string | undefined, today = new Date()): BoardingPass | null {
+  if (!payload || payload.length < 58 || !/^M[1-9]/.test(payload)) return null;
+  const from = payload.slice(30, 33);
+  const to = payload.slice(33, 36);
+  if (!/^[A-Z]{3}$/.test(from) || !/^[A-Z]{3}$/.test(to)) return null;
+  const carrier = payload.slice(36, 39).trim();
+  const number = payload.slice(39, 44).trim().replace(/^0+(?=\d)/, '');
+  const julian = Number(payload.slice(44, 47));
+  const seat = payload.slice(48, 52).trim().replace(/^0+(?=\d)/, '');
+  let date: string | undefined;
+  if (julian >= 1 && julian <= 366) {
+    // The pass only carries the day of the year: pick the nearest year that isn't long past.
+    const thisYear = today.getFullYear();
+    let d = new Date(thisYear, 0, julian);
+    if (d.getTime() < today.getTime() - 60 * 86_400_000) d = new Date(thisYear + 1, 0, julian);
+    date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  const rawName = payload.slice(2, 22).trim();
+  const [last, first] = rawName.split('/');
+  const nice = (w?: string) => (w ? w.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase()) : '');
+  return {
+    name: [nice(first), nice(last)].filter(Boolean).join(' '),
+    ref: payload.slice(23, 30).trim(),
+    from,
+    to,
+    flight: `${carrier}${number}`,
+    date,
+    seat: seat && seat !== '0' && !/^[A-Z]*$/.test(seat) ? seat : undefined,
+  };
+}
+
 // ---------- main ----------
 
 const uniq = (ds: Detail[]) => {
@@ -308,7 +366,7 @@ const uniq = (ds: Detail[]) => {
   });
 };
 
-const PER_TICKET = new Set(LABELS.filter((l) => l.perTicket).map((l) => l.label));
+const PER_TICKET = new Set([...LABELS.filter((l) => l.perTicket).map((l) => l.label), 'Flight', 'Passenger']);
 
 /**
  * @param pages each page's text and how many codes were found on it, in order
@@ -328,8 +386,10 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
   const shared: Detail[] = [];
   const perTicket: Detail[][] = [];
 
+  const first: { pass: BoardingPass | null } = { pass: null };
   pages.forEach((p, i) => {
     const ds = pageDetails[i];
+    const passes = (p.payloads ?? []).map((x) => parseBoardingPass(x, today));
     const mine = ds.filter((d) => PER_TICKET.has(d.label));
     ds.filter((d) => !PER_TICKET.has(d.label)).forEach((d) => {
       if (!shared.some((s) => s.label === d.label)) shared.push(d);
@@ -341,7 +401,15 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
     mine.forEach((d) => byLabel.set(d.label, [...(byLabel.get(d.label) ?? []), d.value]));
     for (let k = 0; k < slots; k++) {
       const list: Detail[] = [];
+      const bp = passes[k];
+      if (bp) {
+        first.pass = first.pass ?? bp;
+        list.push({ label: 'Flight', value: bp.flight });
+        if (bp.seat) list.push({ label: 'Seat', value: bp.seat });
+        if (bp.name) list.push({ label: 'Passenger', value: bp.name });
+      }
       byLabel.forEach((values, label) => {
+        if (list.some((d) => d.label === label)) return; // the barcode already said
         if (values.length === slots) list.push({ label, value: values[k] });
         else if (values.length === 1) list.push({ label, value: values[0] });
       });
@@ -350,16 +418,22 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
   });
   while (perTicket.length < ticketCount) perTicket.push([]);
 
-  // No start time printed: use doors/boarding so the reminder still lands sensibly.
-  const doors = shared.find((d) => d.label === 'Doors');
+  // Booking reference from the boarding pass if the text didn't show one; flight number isn't a shared detail.
+  const pass = first.pass;
+  if (pass && !shared.some((d) => d.label === 'Ref') && pass.ref) shared.push({ label: 'Ref', value: pass.ref });
+  for (let i = shared.length - 1; i >= 0; i--) if (shared[i].label === 'Flight' && pass) shared.splice(i, 1);
+
+  // No start time printed: use doors so the reminder still lands sensibly (boarding stays a detail).
+  const doors = shared.find((d) => d.label === 'Doors') ?? (time ? undefined : shared.find((d) => d.label === 'Boarding'));
   const startTime = time ?? doors?.value;
   if (doors && doors.value === startTime) shared.splice(shared.indexOf(doors), 1);
 
+  const bp = pass;
   return {
-    date: best?.date,
+    date: best?.date ?? bp?.date,
     time: startTime,
-    kind: guessKind(allText),
-    title: findRoute(lines),
+    kind: bp ? 'flight' : guessKind(allText),
+    title: findRoute(lines) ?? (bp ? `${bp.from} → ${bp.to}` : undefined),
     shared,
     perTicket: perTicket.slice(0, ticketCount),
   };

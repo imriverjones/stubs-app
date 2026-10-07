@@ -1,4 +1,4 @@
-# Stubs
+# Stash
 
 All your tickets in one place, on the right day. For the QR tickets that won't go into Apple Wallet: ferries, waterparks, gigs, trains.
 

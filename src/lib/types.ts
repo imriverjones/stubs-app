@@ -1,12 +1,16 @@
-export type Kind = 'ferry' | 'train' | 'flight' | 'bus' | 'gig' | 'event' | 'other';
+export type Kind = 'ferry' | 'train' | 'flight' | 'bus' | 'car' | 'gig' | 'event' | 'activity' | 'visa' | 'medical' | 'other';
 
 export const KINDS: { id: Kind; label: string }[] = [
   { id: 'ferry', label: 'Ferry' },
   { id: 'train', label: 'Train' },
   { id: 'flight', label: 'Flight' },
   { id: 'bus', label: 'Bus' },
+  { id: 'car', label: 'Car' },
   { id: 'gig', label: 'Gig' },
   { id: 'event', label: 'Event' },
+  { id: 'activity', label: 'Activity' },
+  { id: 'visa', label: 'Visa' },
+  { id: 'medical', label: 'Medical' },
   { id: 'other', label: 'Other' },
 ];
 
@@ -50,6 +54,8 @@ export type Stub = {
   details?: Detail[];
   reminderId?: string;
   createdAt: number;
+  /** Set when the person marks the ticket as used; it moves to Archive. */
+  usedAt?: number;
   /** Which fields were read off the ticket (shown as a hint on the confirm screen). */
   autofill?: ('date' | 'time' | 'title' | 'kind')[];
 };

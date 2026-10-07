@@ -19,7 +19,9 @@ import { Perforated } from '../../components/Perforated';
 import { RoundButton } from '../../components/RoundButton';
 import { showToast } from '../../components/Toast';
 import { fmt, relativeDay } from '../../lib/dates';
-import { removeStub, useStore } from '../../lib/store';
+import { rereadStub } from '../../lib/importer';
+import { canSendAll, sendAll, sendTicket } from '../../lib/send';
+import { applyReread, removeStub, setUsed, useStore } from '../../lib/store';
 import { KINDS, type Stub } from '../../lib/types';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
 import { colors, fonts } from '../../theme';
@@ -41,7 +43,7 @@ export default function TicketScreen() {
         <Text style={styles.missingTitle}>Ticket gone</Text>
         <Text style={styles.missingBody}>It may have been deleted or auto-cleared.</Text>
         <Pressable onPress={() => router.replace('/')} style={styles.outline}>
-          <Text style={styles.outlineText}>Back to stubs</Text>
+          <Text style={styles.outlineText}>Back to Stash</Text>
         </Pressable>
       </View>
     );
@@ -52,23 +54,59 @@ export default function TicketScreen() {
   const codeSize = Math.min(cardWidth - 80, 300);
 
   const more = () => {
-    const actions = ['Edit details', 'Delete', 'Cancel'];
-    const handle = (i: number) => {
-      if (i === 0) router.push({ pathname: '/edit/[id]', params: { id: stub.id } });
-      if (i === 1) {
-        router.back();
-        const undo = removeStub(stub.id);
-        showToast(`Deleted ${stub.title}`, { label: 'Undo', onPress: undo });
-      }
-    };
+    const items: { label: string; run: () => void; destructive?: boolean }[] = [
+      {
+        label: count > 1 ? `Send ticket ${page + 1}` : 'Send ticket',
+        run: () => sendTicket(stub, page).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
+      },
+      ...(canSendAll(stub)
+        ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
+        : []),
+      { label: 'Re-read ticket details', run: reread },
+      { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
+      {
+        label: 'Delete',
+        destructive: true,
+        run: () => {
+          router.back();
+          const undo = removeStub(stub.id);
+          showToast(`Deleted ${stub.title}`, { label: 'Undo', onPress: undo });
+        },
+      },
+    ];
     if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({ options: actions, destructiveButtonIndex: 1, cancelButtonIndex: 2 }, handle);
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...items.map((i) => i.label), 'Cancel'],
+          destructiveButtonIndex: items.findIndex((i) => i.destructive),
+          cancelButtonIndex: items.length,
+        },
+        (i) => items[i]?.run(),
+      );
     } else {
       Alert.alert(stub.title, undefined, [
-        { text: actions[0], onPress: () => handle(0) },
-        { text: actions[1], style: 'destructive', onPress: () => handle(1) },
-        { text: 'Cancel', style: 'cancel' },
+        ...items.map((i) => ({ text: i.label, style: i.destructive ? ('destructive' as const) : undefined, onPress: i.run })),
+        { text: 'Cancel', style: 'cancel' as const },
       ]);
+    }
+  };
+
+  async function reread() {
+    try {
+      const found = await rereadStub(stub!);
+      const n = await applyReread(stub!.id, found);
+      showToast(n ? `Found ${n} detail${n === 1 ? '' : 's'}` : 'No extra details on this ticket');
+    } catch (e) {
+      Alert.alert("Couldn't read the ticket", e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  const toggleUsed = async () => {
+    const used = !stub.usedAt;
+    const undo = await setUsed(stub.id, used);
+    if (used) {
+      router.back();
+      showToast('Moved to Archive', { label: 'Undo', onPress: undo });
     }
   };
 
@@ -121,11 +159,19 @@ export default function TicketScreen() {
 
       <View style={{ flex: 1, minHeight: 8 }} />
 
-      <View style={{ paddingHorizontal: H_PAD }}>
+      <View style={styles.bottomRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint={stub.usedAt ? 'Moves it back to your upcoming tickets' : 'Moves it to Archive'}
+          onPress={toggleUsed}
+          style={({ pressed }) => [styles.solid, pressed && { opacity: 0.8 }]}
+        >
+          <Text style={styles.solidText}>{stub.usedAt ? 'Not used yet' : 'Used'}</Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
-          style={({ pressed }) => [styles.outline, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.outlineText}>View original</Text>
         </Pressable>
@@ -219,6 +265,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  bottomRow: { flexDirection: 'row', gap: 10, paddingHorizontal: H_PAD },
+  grow: { flex: 1 },
+  solid: {
+    height: 54,
+    borderRadius: 999,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 26,
+  },
+  solidText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.paper },
   outlineText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink },
   missing: { paddingHorizontal: H_PAD, gap: 12 },
   missingTitle: { fontFamily: fonts.display, fontSize: 44, textTransform: 'uppercase', color: colors.ink },

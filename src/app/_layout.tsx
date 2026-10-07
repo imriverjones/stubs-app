@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastHost } from '../components/Toast';
 import { configureNotifications } from '../lib/reminders';
 import { syncLockScreen } from '../lib/lockscreen';
@@ -81,6 +82,7 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
+    <SafeAreaProvider>
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ground }}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
@@ -95,5 +97,6 @@ export default function RootLayout() {
       </Stack>
       <ToastHost />
     </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

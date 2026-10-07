@@ -20,7 +20,7 @@ export function useOtaUpdates() {
         if (!res.isAvailable) return;
         const fetched = await Updates.fetchUpdateAsync();
         if (fetched.isNew) {
-          showToast('Stubs update ready', { label: 'Restart', onPress: () => Updates.reloadAsync() });
+          showToast('Stash update ready', { label: 'Restart', onPress: () => Updates.reloadAsync() });
         }
       } catch {
         // Offline or server busy: try again next time.

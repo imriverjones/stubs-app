@@ -49,7 +49,7 @@ export default function WebImport() {
         <Text style={styles.errTitle}>Not a web link</Text>
         <Text style={styles.errBody}>Share a ticket page from Safari or Mail, or take a screenshot of it instead.</Text>
         <Pressable accessibilityRole="button" onPress={close} style={styles.capture}>
-          <Text style={styles.captureText}>Back to stubs</Text>
+          <Text style={styles.captureText}>Back to Stash</Text>
         </Pressable>
       </View>
     );

@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
+import { NotifyPrompt } from '../components/NotifyPrompt';
 import { Perforated } from '../components/Perforated';
 import { ScreenshotCards } from '../components/ScreenshotCards';
 import { RoundButton } from '../components/RoundButton';
@@ -17,6 +18,8 @@ import { colors, fonts, label } from '../theme';
 
 const kindLabel = (s: Stub) => KINDS.find((k) => k.id === s.kind)?.label ?? 'Ticket';
 const ticketCount = (s: Stub) => (s.tickets.length > 1 ? `${s.tickets.length} tickets` : '1 ticket');
+const NEXT_COUNT = 5;
+const CARD_GAP = 12;
 const openStub = (id: string) => router.push({ pathname: '/ticket/[id]', params: { id } });
 
 function deleteWithUndo(stub: Stub) {
@@ -29,8 +32,22 @@ export default function Home() {
   const stubs = useStore((s) => s.stubs);
   const keepPastDays = useStore((s) => s.settings.keepPastDays);
   const today = dayKey();
-  const groups = useMemo(() => groupStubs(stubs, today), [stubs, today]);
+  const [now, setNow] = useState(() => Date.now());
+  const groups = useMemo(() => groupStubs(stubs, today, now), [stubs, today, now]);
   const [showPast, setShowPast] = useState(false);
+  const [slide, setSlide] = useState(0);
+  const { width } = useWindowDimensions();
+  const cardW = width - 56;
+  // The next few tickets go in the carousel; everything after that is listed below.
+  const live = [...groups.today, ...groups.upcoming];
+  const next = live.slice(0, NEXT_COUNT);
+  const later = live.slice(NEXT_COUNT);
+
+  // Re-check every minute so tickets slide into Archive a few hours after they start.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const add = useAddTicket();
   const empty = stubs.length === 0;
 
@@ -42,7 +59,7 @@ export default function Home() {
         <View style={styles.header}>
           <View>
             <Text style={label}>{fmt.short(today)}</Text>
-            <Text style={styles.wordmark}>Stubs</Text>
+            <Text style={styles.wordmark}>Stash</Text>
           </View>
           <View style={styles.headerButtons}>
             <RoundButton label="Settings" color="transparent" onPress={() => router.push('/settings')}>
@@ -55,22 +72,50 @@ export default function Home() {
         </View>
 
         <ScreenshotCards />
+        <NotifyPrompt />
 
         {empty && <EmptyState onAdd={add.open} />}
 
-        {groups.today.length > 0 && (
+        {next.length > 0 && (
           <View style={styles.section}>
-            <Text style={label}>Today</Text>
-            {groups.today.map((s) => (
-              <TodayCard key={s.id} stub={s} />
-            ))}
+            <View style={styles.rowBetween}>
+              <Text style={label}>Next up</Text>
+              {next.length > 1 && <Text style={styles.hint}>Swipe for more</Text>}
+            </View>
+            <ScrollView
+              horizontal
+              decelerationRate="fast"
+              snapToInterval={cardW + CARD_GAP}
+              snapToAlignment="start"
+              showsHorizontalScrollIndicator={false}
+              style={styles.carousel}
+              contentContainerStyle={{ paddingHorizontal: 20, gap: CARD_GAP }}
+              onScroll={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / (cardW + CARD_GAP)))}
+              scrollEventThrottle={32}
+            >
+              {next.map((s) => (
+                <View key={s.id} style={{ width: cardW }}>
+                  <NextCard stub={s} />
+                </View>
+              ))}
+            </ScrollView>
+            {next.length > 1 && (
+              <View style={styles.dots} accessibilityLabel={`Ticket ${Math.min(slide, next.length - 1) + 1} of ${next.length}`}>
+                {next.map((s, i) => (
+                  <View key={s.id} style={[styles.dot, i === Math.min(slide, next.length - 1) && styles.dotOn]} />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
-        {groups.upcoming.length > 0 && (
+        {later.length > 0 && (
           <View style={styles.section}>
-            <Text style={label}>Upcoming</Text>
-            {groups.upcoming.map((s) => (
+            <View style={styles.rowBetween}>
+              <Text style={label}>Later</Text>
+              <Text style={styles.hint}>Swipe left to delete</Text>
+            </View>
+            {later.map((s) => (
               <SwipeToDelete key={s.id} stub={s}>
                 <StubRow stub={s} />
               </SwipeToDelete>
@@ -78,7 +123,7 @@ export default function Home() {
           </View>
         )}
 
-        {groups.past.length > 0 && (
+        {groups.archive.length > 0 && (
           <View style={styles.pastBlock}>
             <View style={styles.pastBar}>
               <Pressable
@@ -89,26 +134,30 @@ export default function Home() {
                 hitSlop={8}
               >
                 <Text style={styles.pastText}>
-                  {groups.past.length} past
-                  {keepPastDays ? ` · auto-clear after ${keepPastDays} days` : ''}
+                  Archive · {groups.archive.length}
+                  {keepPastDays ? ` · clears after ${keepPastDays} days` : ''}
                 </Text>
                 <Icon name={showPast ? 'chevronUp' : 'chevronDown'} size={16} color={colors.inkSoft} stroke={2.2} />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
                 onPress={() =>
-                  Alert.alert('Clear past tickets?', `Deletes ${groups.past.length} old ticket${groups.past.length > 1 ? 's' : ''} for good.`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Clear', style: 'destructive', onPress: clearPast },
-                  ])
+                  Alert.alert(
+                    'Clear the archive?',
+                    `Deletes ${groups.archive.length} used or past ticket${groups.archive.length > 1 ? 's' : ''} for good.`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Clear', style: 'destructive', onPress: clearPast },
+                    ],
+                  )
                 }
                 style={({ pressed }) => [styles.outlineBtn, pressed && { opacity: 0.6 }]}
               >
-                <Text style={styles.outlineBtnText}>Clear now</Text>
+                <Text style={styles.outlineBtnText}>Clear</Text>
               </Pressable>
             </View>
             {showPast &&
-              groups.past.map((s) => (
+              groups.archive.map((s) => (
                 <SwipeToDelete key={s.id} stub={s}>
                   <StubRow stub={s} faded />
                 </SwipeToDelete>
@@ -127,11 +176,12 @@ function todayTitleSize(title: string) {
   return { fontSize: 27 };
 }
 
-function TodayCard({ stub }: { stub: Stub }) {
+function NextCard({ stub }: { stub: Stub }) {
+  const when = relativeDay(stub.date);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${stub.title}, today${stub.time ? ` at ${stub.time}` : ''}. Show code.`}
+      accessibilityLabel={`${stub.title}, ${when}${stub.time ? ` at ${stub.time}` : ''}. Show code.`}
       onPress={() => openStub(stub.id)}
       style={({ pressed }) => pressed && { transform: [{ scale: 0.985 }] }}
     >
@@ -149,7 +199,7 @@ function TodayCard({ stub }: { stub: Stub }) {
             </View>
             <Text style={[styles.todayTitle, todayTitleSize(stub.title)]}>{stub.title}</Text>
             <Text style={styles.todaySub}>
-              {[stub.time ? `Starts ${stub.time}` : 'Today', summary([...(stub.tickets[0]?.details ?? []), ...(stub.details ?? [])])]
+              {[stub.time ? `${when} · ${stub.time}` : when, summary([...(stub.tickets[0]?.details ?? []), ...(stub.details ?? [])])]
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
@@ -224,9 +274,9 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
       top={
         <View style={styles.emptyTop}>
           <Text style={label}>Admit one</Text>
-          <Text style={styles.emptyTitle}>No stubs yet</Text>
+          <Text style={styles.emptyTitle}>Nothing stashed yet</Text>
           <Text style={styles.emptyBody}>
-            In Mail, tap your ticket PDF, then Share → Stubs. Or add a screenshot. It shows up here, and Stubs pings you on
+            In Mail, tap your ticket PDF, then Share → Stash. Or add a screenshot. It shows up here, and Stash pings you on
             the day.
           </Text>
         </View>
@@ -254,6 +304,11 @@ const styles = StyleSheet.create({
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   wordmark: { fontFamily: fonts.display, fontSize: 48, textTransform: 'uppercase', color: colors.ink },
   section: { gap: 10 },
+  carousel: { marginHorizontal: -20 },
+  hint: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkFaint },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 2 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.rule },
+  dotOn: { width: 20, backgroundColor: colors.ink },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   todayTop: { padding: 20, paddingBottom: 18, gap: 10 },
@@ -280,7 +335,7 @@ const styles = StyleSheet.create({
   rowDow: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.inkSoft },
   rowRule: { borderLeftWidth: 2, borderStyle: 'dashed', borderColor: colors.perforation, marginVertical: 10 },
   rowBody: { flex: 1, paddingHorizontal: 16, justifyContent: 'center', gap: 4 },
-  rowTitle: { fontFamily: fonts.bodyBold, fontSize: 17, color: colors.ink },
+  rowTitle: { fontFamily: fonts.bodyBold, fontSize: 17, color: colors.ink, textTransform: 'uppercase' },
   rowMeta: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
   deleteAction: {
     width: 88,

@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { addDays, dayKey } from './dates';
+import { addDays, dayKey, toDate } from './dates';
 import { dbFile, deleteStubFiles } from './files';
-import { cancelReminder, ensurePermission, scheduleReminder } from './reminders';
+import type { Extracted } from './extract';
+import { cancelReminder, ensurePermission, reminderStatus, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
 
 type State = {
@@ -135,16 +136,58 @@ export function removeStub(id: string): () => void {
   };
 }
 
-/** Delete every stub whose day has passed. */
+/** Delete everything in Archive. */
 export function clearPast() {
-  const today = dayKey();
-  const past = state.stubs.filter((s) => s.date < today);
-  past.forEach((s) => {
+  const old = state.stubs.filter((s) => isArchived(s));
+  old.forEach((s) => {
     cancelReminder(s.reminderId);
     deleteStubFiles(s.id);
   });
-  set({ stubs: state.stubs.filter((s) => s.date >= today) });
+  set({ stubs: state.stubs.filter((s) => !isArchived(s)) });
   persist();
+}
+
+/** Apply details read off a saved ticket. Fills gaps only; never overwrites what the person set. */
+export async function applyReread(id: string, found: Extracted): Promise<number> {
+  const current = state.stubs.find((s) => s.id === id);
+  if (!current) return 0;
+  const tickets = current.tickets.map((t, i) =>
+    found.perTicket[i]?.length ? { ...t, details: found.perTicket[i] } : t,
+  );
+  const next: Stub = {
+    ...current,
+    tickets,
+    details: found.shared.length ? found.shared : current.details,
+    kind: (current.kind === 'event' || current.kind === 'other') && found.kind ? found.kind : current.kind,
+    time: current.time ?? found.time,
+    title: current.title.trim() ? current.title : found.title ?? current.title,
+  };
+  if (next.time !== current.time) {
+    await cancelReminder(current.reminderId);
+    next.reminderId = await scheduleReminder(next);
+  }
+  set({ stubs: state.stubs.map((s) => (s.id === id ? next : s)) });
+  persist();
+  return found.shared.length + found.perTicket.reduce((n, d) => n + d.length, 0);
+}
+
+/** Mark as used (moves to Archive) or bring it back. Returns an undo. */
+export async function setUsed(id: string, used: boolean): Promise<() => void> {
+  const current = state.stubs.find((s) => s.id === id);
+  if (!current) return () => {};
+  let next: Stub;
+  if (used) {
+    await cancelReminder(current.reminderId);
+    next = { ...current, usedAt: Date.now(), reminderId: undefined };
+  } else {
+    next = { ...current, usedAt: undefined };
+    next.reminderId = await scheduleReminder(next);
+  }
+  set({ stubs: state.stubs.map((s) => (s.id === id ? next : s)) });
+  persist();
+  return () => {
+    setUsed(id, !used);
+  };
 }
 
 /** Delete stubs older than the "keep past tickets" setting. */
@@ -166,16 +209,17 @@ export function setSettings(patch: Partial<Settings>) {
 }
 
 /**
- * Asks for notification permission if there are upcoming tickets, then schedules any
- * reminder that's missing (e.g. tickets saved before permission was given).
+ * Schedules any reminder that's missing (e.g. tickets saved before permission was given).
+ * Pass ask=true to show the iOS prompt first if it hasn't been shown yet.
  */
-export async function ensureReminders() {
-  const upcoming = state.stubs.filter((s) => s.date >= dayKey());
-  if (!upcoming.length || !(await ensurePermission())) return;
+export async function ensureReminders(ask = false) {
+  const upcoming = state.stubs.filter((s) => s.date >= dayKey() && !s.usedAt);
+  if (!upcoming.length) return;
+  if (ask ? !(await ensurePermission()) : (await reminderStatus()) !== 'on') return;
   let changed = false;
   const next = await Promise.all(
     state.stubs.map(async (s) => {
-      if (s.reminderId || s.date < dayKey()) return s;
+      if (s.reminderId || s.date < dayKey() || s.usedAt) return s;
       const reminderId = await scheduleReminder(s);
       if (!reminderId) return s;
       changed = true;
@@ -203,10 +247,25 @@ export function markShotsSeen(ids: string[]) {
 
 // ---------- selectors ----------
 
-export function groupStubs(stubs: Stub[], today = dayKey()) {
+/** How long after its start time a ticket stays "live" before moving to Archive. */
+export const ARCHIVE_AFTER_MS = 3 * 60 * 60 * 1000;
+
+/** Used, or its day is over, or it started more than a few hours ago. */
+export function isArchived(s: Stub, now = Date.now(), today = dayKey()): boolean {
+  if (s.usedAt) return true;
+  if (s.date < today) return true;
+  if (s.date === today && s.time) return toDate(s.date, s.time).getTime() + ARCHIVE_AFTER_MS < now;
+  return false;
+}
+
+export function groupStubs(stubs: Stub[], today = dayKey(), now = Date.now()) {
+  const live = stubs.filter((s) => !isArchived(s, now, today));
   return {
-    today: stubs.filter((s) => s.date === today),
-    upcoming: stubs.filter((s) => s.date > today),
-    past: stubs.filter((s) => s.date < today).reverse(),
+    today: live.filter((s) => s.date === today),
+    upcoming: live.filter((s) => s.date > today),
+    /** Most recent first. */
+    archive: stubs
+      .filter((s) => isArchived(s, now, today))
+      .sort((a, b) => (b.usedAt ?? 0) - (a.usedAt ?? 0) || b.date.localeCompare(a.date)),
   };
 }

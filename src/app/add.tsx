@@ -25,7 +25,7 @@ export default function Add() {
 
   return (
     <StubForm
-      heading="New stub"
+      heading="New ticket"
       stub={draft}
       saveLabel={draft.tickets.length > 1 ? `Save ${draft.tickets.length} tickets` : 'Save ticket'}
       onCancel={() => {

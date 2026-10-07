@@ -37,7 +37,7 @@ function OptIn() {
       <Text style={label}>New</Text>
       <Text style={styles.title}>Spot tickets in your screenshots</Text>
       <Text style={styles.body}>
-        Screenshot a ticket page and Stubs offers to add it next time you open the app. Screenshots are checked on this
+        Screenshot a ticket page and Stash offers to add it next time you open the app. Screenshots are checked on this
         phone and never leave it.
       </Text>
       <View style={styles.actions}>
@@ -51,7 +51,7 @@ function OptIn() {
             if (!ok) {
               Alert.alert(
                 'Photos access is off',
-                'You can turn it on any time in Settings → Stubs → Photos, then switch screenshot checking on in Stubs settings.',
+                'You can turn it on any time in Settings → Stash → Photos, then switch screenshot checking on in Stash settings.',
               );
             }
           }}
@@ -87,7 +87,7 @@ function FoundCard({ shot }: { shot: FoundShot }) {
       <View style={styles.foundBody}>
         <Text style={label}>Ticket in a screenshot</Text>
         <Text style={styles.foundTitle}>
-          {shot.codes > 1 ? `${shot.codes} codes found` : 'Code found'}. Add it to Stubs?
+          {shot.codes > 1 ? `${shot.codes} codes found` : 'Code found'}. Add it to Stash?
         </Text>
         <View style={styles.actions}>
           <Pressable

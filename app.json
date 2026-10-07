@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "Stubs",
+    "name": "Stash",
     "slug": "stubs",
     "scheme": "stubs",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,6 +13,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "LSSupportsOpeningDocumentsInPlace": false
+      },
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
       }
     },
     "android": {
@@ -76,7 +79,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Stubs uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
+          "photosPermission": "Stash uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
           "cameraPermission": false,
           "microphonePermission": false
         }
@@ -84,7 +87,7 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Stubs uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
+          "photosPermission": "Stash uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
           "savePhotosPermission": false,
           "isAccessMediaLocationEnabled": false
         }

@@ -1,4 +1,4 @@
-import { File } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import { isScannerAvailable, scanFileAsync, type ScannedPage } from '../../modules/stubs-scanner';
 import { dayKey } from './dates';
 import { extractDetails, type PageText } from './extract';
@@ -77,7 +77,11 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
         // No code anywhere in this file: keep the pages themselves as the ticket.
         tickets.push({ id: newId(), pageUri: page.imageUri });
       }
-      pageTexts.push({ text: page.text ?? '', codes: tickets.length - before });
+      pageTexts.push({
+        text: page.text ?? '',
+        codes: tickets.length - before,
+        payloads: tickets.slice(before).map((t) => t.code?.payload),
+      });
     }
   }
 
@@ -117,4 +121,45 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
   };
   setDraft(draft);
   return draft;
+}
+
+/**
+ * Reads an already-saved ticket again (e.g. one saved before Stash could read details)
+ * and returns what it found. Uses the stored page images, so it works offline.
+ */
+export async function rereadStub(stub: Stub) {
+  if (!isScannerAvailable) throw new Error('Reading tickets needs the full app, not Expo Go.');
+  const scratch = new Directory(Paths.cache, `reread-${stub.id}`);
+  try {
+    if (scratch.exists) scratch.delete();
+  } catch {}
+  scratch.create({ intermediates: true, idempotent: true });
+
+  // Tickets in order, grouped by the page they came from.
+  const order: string[] = [];
+  const byPage = new Map<string, Ticket[]>();
+  for (const t of stub.tickets) {
+    if (!byPage.has(t.pageUri)) {
+      byPage.set(t.pageUri, []);
+      order.push(t.pageUri);
+    }
+    byPage.get(t.pageUri)!.push(t);
+  }
+
+  const pages: PageText[] = [];
+  for (const uri of order) {
+    const tickets = byPage.get(uri)!;
+    let text = '';
+    try {
+      const scanned = await scanFileAsync(uri, scratch.uri);
+      text = scanned.map((p) => p.text ?? '').join('\n');
+    } catch {
+      // Page image missing: carry on with the barcode contents we have.
+    }
+    pages.push({ text, codes: tickets.length, payloads: tickets.map((t) => t.code?.payload) });
+  }
+  try {
+    scratch.delete();
+  } catch {}
+  return extractDetails(pages, stub.tickets.length);
 }
