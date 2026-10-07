@@ -22,19 +22,43 @@ export function useAddTicket() {
     }
   }
 
+  function askForLink() {
+    Alert.prompt(
+      'Ticket link',
+      'Paste the link to your ticket page. You can sign in on the next screen if it asks.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open',
+          onPress: (value?: string) => {
+            const url = value?.trim();
+            if (url) router.push({ pathname: '/web', params: { url: /^https?:\/\//i.test(url) ? url : `https://${url}` } });
+          },
+        },
+      ],
+      'plain-text',
+      '',
+      'url',
+    );
+  }
+
   function open() {
-    const options = ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
+    const ios = Platform.OS === 'ios';
+    const options = ios
+      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
+      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
     const handle = (i: number) => {
       if (i === 0) run(pickPhotos);
       if (i === 1) run(pickDocument);
+      if (ios && i === 2) askForLink();
     };
-    if (Platform.OS === 'ios') {
+    if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options,
-          cancelButtonIndex: 2,
+          cancelButtonIndex: options.length - 1,
           title: 'Add a ticket',
-          message: 'Tip: in Mail, tap the ticket, then Share → Stubs.',
+          message: 'Tip: in Mail or Safari, tap Share → Stubs.',
         },
         handle,
       );

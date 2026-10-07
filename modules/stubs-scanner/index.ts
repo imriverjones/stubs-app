@@ -11,6 +11,8 @@ export type ScannedCode = {
 
 export type ScannedPage = {
   pageIndex: number;
+  /** The page's text: the PDF text layer, or on-device OCR for images and scans. */
+  text: string;
   imageUri: string;
   width: number;
   height: number;

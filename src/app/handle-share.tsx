@@ -18,8 +18,26 @@ export default function HandleShare() {
         .map((p) => ({ uri: p.contentUri as string, name: p.originalName, mimeType: p.contentMimeType })),
     [resolvedSharedPayloads],
   );
-  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0;
-  const message = failure ?? error?.message ?? (nothingUsable ? 'Share a PDF or an image of the ticket.' : null);
+  // A shared link (Safari page, link from Mail) opens in the in-app capture view.
+  const sharedUrl = useMemo(() => {
+    for (const p of resolvedSharedPayloads) {
+      const candidates = [p.contentType === 'website' ? p.contentUri : null, p.value];
+      for (const c of candidates) {
+        const m = c?.match(/https?:\/\/[^\s<>"']+/i);
+        if (m) return m[0];
+      }
+    }
+    return null;
+  }, [resolvedSharedPayloads]);
+  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0 && !sharedUrl;
+  const message = failure ?? error?.message ?? (nothingUsable ? 'Share a PDF, an image or a link to the ticket.' : null);
+
+  useEffect(() => {
+    if (isResolving || started.current || files.length || !sharedUrl) return;
+    started.current = true;
+    clearSharedPayloads();
+    router.replace({ pathname: '/web', params: { url: sharedUrl } });
+  }, [files, sharedUrl, isResolving, clearSharedPayloads]);
 
   useEffect(() => {
     if (isResolving || started.current || !files.length) return;

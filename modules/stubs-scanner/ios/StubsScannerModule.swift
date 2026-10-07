@@ -21,6 +21,7 @@ public class StubsScannerModule: Module {
       try FileManager.default.createDirectory(at: outUrl, withIntermediateDirectories: true)
 
       let images = try Self.pageImages(for: fileUrl)
+      let pdfText = Self.pdfPageTexts(for: fileUrl)
       var pages: [[String: Any]] = []
 
       for (index, image) in images.enumerated() {
@@ -32,7 +33,13 @@ public class StubsScannerModule: Module {
         }
 
         let codes = try Self.detectCodes(in: cg, outUrl: outUrl)
+        // Prefer the PDF's own text; fall back to on-device recognition for images and scans.
+        var text = index < pdfText.count ? pdfText[index] : ""
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).count < 20 {
+          text = Self.recognizeText(in: cg)
+        }
         pages.append([
+          "text": text,
           "pageIndex": index,
           "imageUri": pageUrl.absoluteString,
           "width": cg.width,
@@ -113,6 +120,53 @@ public class StubsScannerModule: Module {
       ctx.fill(CGRect(origin: .zero, size: pixelSize))
       image.draw(in: CGRect(origin: .zero, size: pixelSize))
     }
+  }
+
+  // MARK: - Text
+
+  static func pdfPageTexts(for url: URL) -> [String] {
+    guard url.pathExtension.lowercased() == "pdf" || isPDF(url) else { return [] }
+    let accessing = url.startAccessingSecurityScopedResource()
+    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+    guard let document = PDFDocument(url: url) else { return [] }
+    let count = min(document.pageCount, maxPages)
+    return (0..<count).map { document.page(at: $0)?.string ?? "" }
+  }
+
+  /// On-device OCR, returned as lines in reading order (top to bottom, left to right).
+  static func recognizeText(in cg: CGImage) -> String {
+    let request = VNRecognizeTextRequest()
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = false
+    if #available(iOS 16.0, *) {
+      request.automaticallyDetectsLanguage = true
+    }
+    let handler = VNImageRequestHandler(cgImage: cg, options: [:])
+    do {
+      try handler.perform([request])
+    } catch {
+      return ""
+    }
+    let lines = (request.results ?? []).compactMap { obs -> (CGRect, String)? in
+      guard let best = obs.topCandidates(1).first else { return nil }
+      return (obs.boundingBox, best.string)
+    }
+    let sorted = lines.sorted {
+      if abs($0.0.midY - $1.0.midY) > 0.012 { return $0.0.midY > $1.0.midY }
+      return $0.0.minX < $1.0.minX
+    }
+    // Join boxes on the same visual line with a tab so "SEAT" and "14" stay together.
+    var out: [String] = []
+    var lastY: CGFloat = -1
+    for (box, str) in sorted {
+      if lastY >= 0, abs(box.midY - lastY) <= 0.012, let prev = out.popLast() {
+        out.append(prev + "\t" + str)
+      } else {
+        out.append(str)
+      }
+      lastY = box.midY
+    }
+    return out.joined(separator: "\n")
   }
 
   // MARK: - Detection

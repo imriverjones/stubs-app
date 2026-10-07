@@ -44,6 +44,9 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
   const [time, setTime] = useState<string | undefined>(stub.time);
   const first = stub.tickets[0];
   const count = stub.tickets.length;
+  // Shared details plus the first ticket's own (seat etc.); with several tickets, note that seats vary.
+  const readDetails = [...(first?.details ?? []), ...(stub.details ?? [])];
+  const filled = stub.autofill ?? [];
 
   const onDate = (_: DateTimePickerEvent, d?: Date) => d && setDate(dayKey(d));
   const onTime = (_: DateTimePickerEvent, d?: Date) => d && setTime(timeKey(d));
@@ -92,6 +95,20 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
             <View style={styles.cardBottom}>{first && <CodeView ticket={first} size={150} />}</View>
           }
         />
+
+        {readDetails.length > 0 && (
+          <View style={styles.field}>
+            <Text style={label}>Read from your ticket</Text>
+            <View style={styles.chips}>
+              {readDetails.map((d, i) => (
+                <View key={`${d.label}-${d.value}-${i}`} style={styles.detail}>
+                  <Text style={styles.detailLabel}>{d.label === 'Ref' ? 'Booking ref' : d.label}</Text>
+                  <Text style={styles.detailValue}>{d.value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={styles.field}>
           <Text style={label}>Type</Text>
@@ -158,6 +175,12 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
           )}
         </View>
         <Text style={styles.reminder}>{reminderText(date, time)}</Text>
+        {(filled.includes('date') || filled.includes('time')) && (
+          <Text style={styles.reminder}>
+            {filled.includes('date') && filled.includes('time') ? 'Date and time' : filled.includes('date') ? 'Date' : 'Time'}{' '}
+            read from the ticket. Check they&apos;re right.
+          </Text>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
@@ -202,6 +225,9 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#E6E6E0' },
   valueBtn: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: colors.ground, borderRadius: 8 },
   value: { fontFamily: fonts.mono, fontSize: 15, color: colors.ink },
+  detail: { backgroundColor: colors.paper, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
+  detailLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.inkFaint },
+  detailValue: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
   reminder: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft, marginTop: -10 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.ground },
   save: { height: 56, borderRadius: 999, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },

@@ -49,14 +49,17 @@
             "appGroupId": "group.com.imriverjones.stubs",
             "activationRule": {
               "supportsImageWithMaxCount": 10,
-              "supportsFileWithMaxCount": 5
+              "supportsFileWithMaxCount": 5,
+              "supportsWebUrlWithMaxCount": 1,
+              "supportsText": true
             }
           },
           "android": {
             "enabled": true,
             "singleShareMimeTypes": [
               "application/pdf",
-              "image/*"
+              "image/*",
+              "text/plain"
             ],
             "multipleShareMimeTypes": [
               "image/*"
@@ -73,9 +76,25 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Stubs opens your photos so you can add screenshots of tickets.",
+          "photosPermission": "Stubs uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
           "cameraPermission": false,
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Stubs uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
+          "savePhotosPermission": false,
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.imriverjones.stubs.widgets",
+          "groupIdentifier": "group.com.imriverjones.stubs",
+          "enablePushNotifications": false
         }
       ]
     ],

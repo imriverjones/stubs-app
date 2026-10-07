@@ -5,9 +5,11 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { Perforated } from '../components/Perforated';
+import { ScreenshotCards } from '../components/ScreenshotCards';
 import { RoundButton } from '../components/RoundButton';
 import { showToast } from '../components/Toast';
 import { dayKey, fmt, relativeDay } from '../lib/dates';
+import { summary } from '../lib/lockscreen';
 import { clearPast, groupStubs, removeStub, useStore } from '../lib/store';
 import { KINDS, type Stub } from '../lib/types';
 import { useAddTicket } from '../lib/useAddTicket';
@@ -51,6 +53,8 @@ export default function Home() {
             </RoundButton>
           </View>
         </View>
+
+        <ScreenshotCards />
 
         {empty && <EmptyState onAdd={add.open} />}
 
@@ -144,7 +148,11 @@ function TodayCard({ stub }: { stub: Stub }) {
               <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
             </View>
             <Text style={[styles.todayTitle, todayTitleSize(stub.title)]}>{stub.title}</Text>
-            <Text style={styles.todaySub}>{stub.time ? `Starts ${stub.time}` : 'Today'}</Text>
+            <Text style={styles.todaySub}>
+              {[stub.time ? `Starts ${stub.time}` : 'Today', summary([...(stub.tickets[0]?.details ?? []), ...(stub.details ?? [])])]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
           </View>
         }
         bottom={

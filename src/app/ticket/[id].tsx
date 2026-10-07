@@ -163,6 +163,9 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
           <View style={styles.grid}>
             <Field label="Date" value={`${relativeDay(stub.date) === 'Today' ? 'Today · ' : ''}${fmt.short(stub.date)}`} />
             {stub.time ? <Field label="Time" value={stub.time} /> : null}
+            {[...(stub.tickets[index]?.details ?? []), ...(stub.details ?? [])].map((d, i) => (
+              <Field key={`${d.label}-${i}`} label={d.label === 'Ref' ? 'Booking ref' : d.label} value={d.value} mono={d.label === 'Ref'} />
+            ))}
           </View>
         </View>
       }
@@ -179,11 +182,11 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <View style={styles.fieldBox}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
+      <Text style={[styles.fieldValue, mono && { fontFamily: fonts.mono }]}>{value}</Text>
     </View>
   );
 }

@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
+import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
 import { setSettings, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 
@@ -17,6 +18,8 @@ const KEEP = [
 export default function Settings() {
   const keep = useStore((s) => s.settings.keepPastDays);
   const count = useStore((s) => s.stubs.length);
+  const lockScreen = useStore((s) => s.settings.lockScreen);
+  const shots = useStore((s) => s.settings.screenshots);
   const insets = useSafeAreaInsets();
 
   return (
@@ -49,6 +52,39 @@ export default function Settings() {
         <Text style={styles.note}>
           {keep ? `Tickets delete themselves ${keep} days after the event.` : 'Old tickets stay until you clear them.'}
         </Text>
+      </View>
+
+      <View style={styles.block}>
+        <Text style={label}>Shortcuts</Text>
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowText}>Lock screen ticket</Text>
+            <Text style={styles.note}>On the day, pin the ticket to your lock screen.</Text>
+          </View>
+          <Switch
+            value={lockScreen}
+            onValueChange={(v) => setSettings({ lockScreen: v })}
+            trackColor={{ true: colors.accent, false: '#D6D6CF' }}
+            accessibilityLabel="Lock screen ticket"
+          />
+        </View>
+        {screenshotsSupported && (
+          <View style={styles.row}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rowText}>Spot tickets in screenshots</Text>
+              <Text style={styles.note}>Checked on this phone when you open Stubs.</Text>
+            </View>
+            <Switch
+              value={shots === 'on'}
+              onValueChange={(v) => {
+                if (v) enableScreenshotCheck();
+                else setSettings({ screenshots: 'off' });
+              }}
+              trackColor={{ true: colors.accent, false: '#D6D6CF' }}
+              accessibilityLabel="Spot tickets in screenshots"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.block}>

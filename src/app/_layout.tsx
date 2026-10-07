@@ -14,6 +14,8 @@ import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ToastHost } from '../components/Toast';
 import { configureNotifications } from '../lib/reminders';
+import { syncLockScreen } from '../lib/lockscreen';
+import { checkRecentScreenshots } from '../lib/screenshots';
 import { cleanUp, load, useStore } from '../lib/store';
 import { colors } from '../theme';
 
@@ -43,11 +45,23 @@ export default function RootLayout() {
     SpaceMono_700Bold,
   });
   const loaded = useStore((s) => s.loaded);
+  const stubs = useStore((s) => s.stubs);
+  const lockScreen = useStore((s) => s.settings.lockScreen);
+
+  // Keep the lock screen card in step with today's tickets.
+  useEffect(() => {
+    if (loaded) syncLockScreen();
+  }, [loaded, stubs, lockScreen]);
   const ready = fontsLoaded && loaded;
 
   useEffect(() => {
-    load();
-    const sub = AppState.addEventListener('change', (s) => s === 'active' && cleanUp());
+    load().then(checkRecentScreenshots);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s !== 'active') return;
+      cleanUp();
+      checkRecentScreenshots();
+      syncLockScreen();
+    });
     return () => sub.remove();
   }, []);
 
@@ -70,6 +84,7 @@ export default function RootLayout() {
         <Stack.Screen name="original/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="handle-share" options={{ animation: 'fade' }} />
+        <Stack.Screen name="web" options={{ presentation: 'fullScreenModal' }} />
       </Stack>
       <ToastHost />
     </GestureHandlerRootView>

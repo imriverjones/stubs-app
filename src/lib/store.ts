@@ -10,9 +10,13 @@ type State = {
   settings: Settings;
   /** A scanned import waiting on the confirm screen. */
   draft: Stub | null;
+  /** Screenshot ids already checked, so each is only offered once. */
+  seenShots: string[];
+  /** The lock screen card currently showing, and which stub it belongs to. */
+  lockCard: { activityId: string; stubId: string } | null;
 };
 
-let state: State = { loaded: false, stubs: [], settings: DEFAULT_SETTINGS, draft: null };
+let state: State = { loaded: false, stubs: [], settings: DEFAULT_SETTINGS, draft: null, seenShots: [], lockCard: null };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State>) {
@@ -35,7 +39,7 @@ export const getState = () => state;
 
 function persist() {
   try {
-    dbFile().write(JSON.stringify({ v: 1, stubs: state.stubs, settings: state.settings }));
+    dbFile().write(JSON.stringify({ v: 1, stubs: state.stubs, settings: state.settings, seenShots: state.seenShots, lockCard: state.lockCard }));
   } catch (e) {
     console.warn('Could not save stubs', e);
   }
@@ -45,17 +49,21 @@ export async function load() {
   if (state.loaded) return;
   let stubs: Stub[] = [];
   let settings = DEFAULT_SETTINGS;
+  let seenShots: string[] = [];
+  let lockCard: State['lockCard'] = null;
   try {
     const file = dbFile();
     if (file.exists) {
       const data = JSON.parse(await file.text());
       stubs = Array.isArray(data.stubs) ? data.stubs : [];
       settings = { ...DEFAULT_SETTINGS, ...(data.settings ?? {}) };
+      seenShots = Array.isArray(data.seenShots) ? data.seenShots : [];
+      lockCard = data.lockCard ?? null;
     }
   } catch (e) {
     console.warn('Could not read stubs', e);
   }
-  set({ loaded: true, stubs: sortStubs(stubs), settings });
+  set({ loaded: true, stubs: sortStubs(stubs), settings, seenShots, lockCard });
   cleanUp();
 }
 
@@ -155,6 +163,19 @@ export function setSettings(patch: Partial<Settings>) {
   set({ settings: { ...state.settings, ...patch } });
   persist();
   cleanUp();
+}
+
+export function setLockCard(lockCard: State['lockCard']) {
+  set({ lockCard });
+  persist();
+}
+
+/** Remember screenshots we've looked at (newest 300). */
+export function markShotsSeen(ids: string[]) {
+  if (!ids.length) return;
+  const next = [...ids, ...state.seenShots.filter((id) => !ids.includes(id))].slice(0, 300);
+  set({ seenShots: next });
+  persist();
 }
 
 // ---------- selectors ----------
