@@ -1,0 +1,40 @@
+import { Directory, File, Paths } from 'expo-file-system';
+
+/** Everything Stubs keeps lives under Documents/stubs/. */
+export const rootDir = () => new Directory(Paths.document, 'stubs');
+
+export function stubDir(id: string): Directory {
+  const dir = new Directory(rootDir(), id);
+  dir.create({ intermediates: true, idempotent: true });
+  return dir;
+}
+
+export function deleteStubFiles(id: string) {
+  const dir = new Directory(rootDir(), id);
+  try {
+    if (dir.exists) dir.delete();
+  } catch {
+    // Already gone, or locked; nothing useful to do.
+  }
+}
+
+export function dbFile(): File {
+  rootDir().create({ intermediates: true, idempotent: true });
+  return new File(rootDir(), 'stubs.json');
+}
+
+export function newId(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Turn "Ferry_Ticket-Nidri_Kefalonia_07Oct.pdf" into "Ferry Ticket Nidri Kefalonia 07Oct". */
+export function titleFromFileName(name: string | null | undefined): string {
+  if (!name) return '';
+  const base = name.replace(/\.[a-z0-9]{2,5}$/i, '');
+  if (/^(IMG|Screenshot|image|photo|PXL)[ _-]?\d/i.test(base) || /^[0-9a-f-]{20,}$/i.test(base)) return '';
+  return base
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60);
+}

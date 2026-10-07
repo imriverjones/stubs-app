@@ -1,0 +1,10 @@
+{
+  "name": "stubs-scanner",
+  "version": "1.0.0",
+  "description": "On-device ticket scanning for Stubs: renders PDF pages and finds barcodes with Apple Vision.",
+  "main": "index.ts",
+  "license": "MIT",
+  "author": "River Jones-Gardner",
+  "homepage": "https://github.com/imriverjones/stubs-app",
+  "private": true
+}
