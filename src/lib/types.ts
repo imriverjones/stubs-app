@@ -78,10 +78,8 @@ export type Stub = {
   stay?: Stay;
   /** Photo the person chose for the card on the home screen. */
   cover?: string;
-  /** Credit for an automatic cover photo (Wikimedia Commons author and licence). */
+  /** Set only on covers from the old automatic lookup; those are removed on launch. */
   coverCredit?: string;
-  /** An automatic cover has been looked for (or the person set/removed one): don't look again. */
-  coverTried?: boolean;
   /** A demo ticket from the empty screen: no files, removed when a real ticket is saved. */
   sample?: boolean;
   /** Which fields were read off the ticket (shown as a hint on the confirm screen). */
@@ -95,8 +93,6 @@ export type Settings = {
   screenshots?: 'on' | 'off';
   /** Pin today's ticket to the lock screen as a Live Activity. */
   lockScreen: boolean;
-  /** Look up free cover photos by event or place name. On unless turned off (false). */
-  autoCovers?: boolean;
   /** The how-it-works slides have been shown. */
   introSeen?: boolean;
 };

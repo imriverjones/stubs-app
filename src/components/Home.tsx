@@ -271,11 +271,6 @@ function NextCard({ stub }: { stub: Stub }) {
               <>
                 <Image source={{ uri: stub.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
                 <View style={[StyleSheet.absoluteFill, styles.coverShade]} />
-                {stub.coverCredit ? (
-                  <Text style={styles.coverCredit} numberOfLines={1}>
-                    Photo: {stub.coverCredit}
-                  </Text>
-                ) : null}
               </>
             )}
             <View style={styles.rowBetween}>
@@ -452,7 +447,6 @@ const styles = StyleSheet.create({
   tag: { backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.ink },
   todayTopCover: { minHeight: 200, justifyContent: 'space-between' },
-  coverCredit: { position: 'absolute', right: 10, bottom: 6, maxWidth: '80%', fontFamily: fonts.mono, fontSize: 8, color: 'rgba(244,244,240,0.7)' },
   coverShade: { backgroundColor: 'rgba(17,17,17,0.5)' },
   todayTitle: { fontFamily: fonts.display, fontSize: 40, textTransform: 'uppercase', color: colors.nightText },
   todaySub: { fontFamily: fonts.mono, fontSize: 13, color: '#D6D6CF' },

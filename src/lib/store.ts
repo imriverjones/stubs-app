@@ -66,7 +66,7 @@ export async function load() {
   } catch (e) {
     console.warn('Could not read stubs', e);
   }
-  const fixed = stubs.map(rebaseStub).map(dropDuplicateBarcodes);
+  const fixed = stubs.map(rebaseStub).map(dropDuplicateBarcodes).map(dropAutoCover);
   const moved = JSON.stringify(fixed) !== JSON.stringify(stubs);
   set({ loaded: true, stubs: sortStubs(fixed), settings, seenShots, lockCard });
   if (moved) persist();
@@ -74,6 +74,20 @@ export async function load() {
 }
 
 /** Point a stub's saved files at the app's current folder (see rebase). */
+/** Automatic (Wikipedia) covers were removed: delete those, keep photos people chose. */
+function dropAutoCover(s: Stub): Stub {
+  if (!s.coverCredit) return s;
+  try {
+    if (s.cover) {
+      const f = new File(s.cover);
+      if (f.exists) f.delete();
+    }
+  } catch {}
+  const { cover: _cover, coverCredit: _credit, ...rest } = s as Stub & { coverTried?: boolean };
+  delete (rest as { coverTried?: boolean }).coverTried;
+  return rest;
+}
+
 /** Older imports made a separate ticket for a barcode printed next to a QR code. Drop those. */
 function dropDuplicateBarcodes(s: Stub): Stub {
   const squarePages = new Set(s.tickets.filter((t) => t.code && t.code.symbology !== 'linear').map((t) => t.pageUri));
@@ -371,7 +385,7 @@ export function addSampleTicket(): Stub {
 }
 
 /** Set (copying the photo into the ticket's folder) or clear a ticket's cover photo. */
-export async function setCover(id: string, photoUri: string | null, opts: { credit?: string } = {}) {
+export async function setCover(id: string, photoUri: string | null) {
   const current = state.stubs.find((s) => s.id === id);
   if (!current) return;
   let cover: string | undefined;
@@ -389,6 +403,6 @@ export async function setCover(id: string, photoUri: string | null, opts: { cred
     } catch {}
   }
   const latest = state.stubs.find((s) => s.id === id) ?? current;
-  set({ stubs: state.stubs.map((s) => (s.id === id ? { ...latest, cover, coverCredit: cover ? opts.credit : undefined, coverTried: true } : s)) });
+  set({ stubs: state.stubs.map((s) => (s.id === id ? { ...latest, cover, coverCredit: undefined } : s)) });
   persist();
 }

@@ -14,7 +14,6 @@ import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastHost } from '../components/Toast';
-import { backfillCovers } from '../lib/covers';
 import { configureNotifications } from '../lib/reminders';
 import { syncLockScreen } from '../lib/lockscreen';
 import { checkRecentScreenshots } from '../lib/screenshots';
@@ -62,7 +61,6 @@ export default function RootLayout() {
     load().then(() => {
       ensureReminders();
       checkRecentScreenshots();
-      backfillCovers();
     });
     const sub = AppState.addEventListener('change', (s) => {
       if (s !== 'active') return;
@@ -70,7 +68,6 @@ export default function RootLayout() {
       ensureReminders();
       checkRecentScreenshots();
       syncLockScreen();
-      backfillCovers();
     });
     return () => sub.remove();
   }, []);

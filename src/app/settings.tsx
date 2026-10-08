@@ -9,7 +9,6 @@ import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
 import { reminderStatus, type ReminderStatus } from '../lib/reminders';
-import { backfillCovers } from '../lib/covers';
 import { askPersistentBanners } from '../lib/persistent';
 import { ensureReminders, setSettings, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
@@ -34,7 +33,6 @@ export default function Settings() {
   );
   const lockScreen = useStore((s) => s.settings.lockScreen);
   const shots = useStore((s) => s.settings.screenshots);
-  const autoCovers = useStore((s) => s.settings.autoCovers);
   const insets = useSafeAreaInsets();
 
   return (
@@ -80,20 +78,6 @@ export default function Settings() {
             value={lockScreen}
             onValueChange={(v) => setSettings({ lockScreen: v })}
             accessibilityLabel="Lock screen ticket"
-          />
-        </View>
-        <View style={styles.row}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.rowText}>Cover photos</Text>
-            <Text style={styles.note}>Finds a free photo of the event or place on Wikipedia.</Text>
-          </View>
-          <Toggle
-            value={autoCovers !== false}
-            onValueChange={(v) => {
-              setSettings({ autoCovers: v });
-              if (v) backfillCovers();
-            }}
-            accessibilityLabel="Cover photos"
           />
         </View>
         {screenshotsSupported && (
@@ -163,7 +147,7 @@ export default function Settings() {
       <View style={styles.block}>
         <Text style={label}>Privacy</Text>
         <Text style={styles.body}>
-          Your tickets never leave this phone unless you send them. No account, no server. Codes are read on-device. With cover photos on, only the event or place name is looked up on Wikipedia.
+          Your tickets never leave this phone unless you send them. No account, no server. Codes are read on-device.
         </Text>
       </View>
 

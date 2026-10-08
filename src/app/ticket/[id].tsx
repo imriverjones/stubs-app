@@ -23,7 +23,6 @@ import { showToast } from '../../components/Toast';
 import { fmt, relativeDay } from '../../lib/dates';
 import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
-import { autoCover } from '../../lib/covers';
 import { pickCoverPhoto } from '../../lib/pickers';
 import { applyReread, removeStub, setCover, setUsed, useStore } from '../../lib/store';
 import { KINDS, type Stub } from '../../lib/types';
@@ -115,18 +114,7 @@ export default function TicketScreen() {
           }
         },
       },
-      ...(stub.cover
-        ? [{ label: 'Remove cover photo', run: () => setCover(stub.id, null) }]
-        : [
-            {
-              label: 'Find a cover photo',
-              run: async () => {
-                showToast('Looking for a photo…');
-                const ok = await autoCover(stub, { force: true });
-                showToast(ok ? 'Cover photo added' : 'No free photo found. Try Choose cover photo.');
-              },
-            },
-          ]),
+      ...(stub.cover ? [{ label: 'Remove cover photo', run: () => setCover(stub.id, null) }] : []),
       { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
       {
         label: 'Delete',
