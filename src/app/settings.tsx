@@ -10,6 +10,7 @@ import { RoundButton } from '../components/RoundButton';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
 import { reminderStatus, type ReminderStatus } from '../lib/reminders';
 import { backfillCovers } from '../lib/covers';
+import { askPersistentBanners } from '../lib/persistent';
 import { ensureReminders, setSettings, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 
@@ -135,11 +136,20 @@ export default function Settings() {
               {reminders === 'on' ? 'Reminders are on' : reminders === 'ask' ? 'Turn on reminders' : 'Reminders are off'}
             </Text>
             <Text style={styles.note}>
-              {reminders === 'off' ? 'Tap to allow notifications in iPhone Settings.' : reminders === 'on' ? 'Tip: set Banner Style to Persistent so they stay on screen' : 'Stash needs permission to remind you.'}
+              {reminders === 'off' ? 'Tap to allow notifications in iPhone Settings.' : reminders === 'on' ? 'You’ll get them 2 hours before, or at 8am' : 'Stash needs permission to remind you.'}
             </Text>
           </View>
           <Icon name="arrow" size={16} color={colors.ink} />
         </Pressable>
+        {reminders === 'on' && (
+          <Pressable accessibilityRole="button" onPress={askPersistentBanners} style={styles.row}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.rowText}>Keep reminders on screen</Text>
+              <Text style={styles.note}>Set Banner Style to Persistent in iPhone Settings.</Text>
+            </View>
+            <Icon name="arrow" size={16} color={colors.ink} />
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.block}>

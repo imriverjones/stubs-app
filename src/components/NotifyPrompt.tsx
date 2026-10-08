@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { AppState, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { reminderStatus, type ReminderStatus } from '../lib/reminders';
+import { askPersistentBanners } from '../lib/persistent';
 import { ensureReminders, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 import { Icon } from './Icon';
@@ -40,8 +41,10 @@ export function NotifyPrompt() {
       return;
     }
     await ensureReminders(true);
-    setStatus(await reminderStatus());
+    const now = await reminderStatus();
+    setStatus(now);
     close();
+    if (now === 'on') setTimeout(askPersistentBanners, 600);
   };
 
   return (

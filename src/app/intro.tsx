@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../components/CodeView';
 import { Icon } from '../components/Icon';
 import { Perforated } from '../components/Perforated';
+import { askPersistentBanners } from '../lib/persistent';
 import { reminderStatus } from '../lib/reminders';
 import { ensureReminders, setSettings } from '../lib/store';
 import type { Ticket } from '../lib/types';
@@ -220,8 +221,10 @@ export default function Intro() {
       scroller.current?.scrollTo({ x: width * (page + 1), animated: true });
       return;
     }
-    if ((await reminderStatus()) === 'ask') await ensureReminders(true);
+    const before = await reminderStatus();
+    if (before === 'ask') await ensureReminders(true);
     finish();
+    if (before === 'ask' && (await reminderStatus()) === 'on') setTimeout(askPersistentBanners, 700);
   };
 
   return (
