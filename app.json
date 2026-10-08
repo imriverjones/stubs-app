@@ -99,6 +99,12 @@
           "groupIdentifier": "group.com.imriverjones.stubs",
           "enablePushNotifications": false
         }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Stash uses motion so holographic tickets shimmer as you tilt your phone."
+        }
       ]
     ],
     "experiments": {

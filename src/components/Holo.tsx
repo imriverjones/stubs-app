@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { hasMotion } from '../lib/native';
+import { startTilt, tilt } from '../lib/tilt';
 
 /**
  * Holographic foil: a soft rainbow band that slowly sweeps across whatever is behind it
@@ -11,7 +13,13 @@ export function Holo({ intensity = 0.32 }: { intensity?: number }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [x] = useState(() => new Animated.Value(0));
 
+  // Tilt the phone to move the foil (new build); otherwise it sweeps on its own.
+  const [tilting] = useState(() => hasMotion);
   useEffect(() => {
+    if (tilting) {
+      const stop = startTilt();
+      if (stop) return stop;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(x, { toValue: 1, duration: 4200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -20,7 +28,7 @@ export function Holo({ intensity = 0.32 }: { intensity?: number }) {
     );
     loop.start();
     return () => loop.stop();
-  }, [x]);
+  }, [x, tilting]);
 
   const { w, h } = size;
   return (
@@ -38,7 +46,7 @@ export function Holo({ intensity = 0.32 }: { intensity?: number }) {
             width: w * 3,
             height: h,
             opacity: intensity,
-            transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-w * 0.6, w * 0.6] }) }],
+            transform: [{ translateX: (tilting ? tilt : x).interpolate({ inputRange: [0, 1], outputRange: [-w * 0.6, w * 0.6] }) }],
           }}
         >
           <Svg width={w * 3} height={h}>
