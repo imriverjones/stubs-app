@@ -67,6 +67,8 @@ export type Settings = {
   screenshots?: 'on' | 'off';
   /** Pin today's ticket to the lock screen as a Live Activity. */
   lockScreen: boolean;
+  /** The how-it-works slides have been shown. */
+  introSeen?: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = { keepPastDays: 30, lockScreen: true };

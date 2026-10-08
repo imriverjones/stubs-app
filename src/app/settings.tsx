@@ -128,6 +128,14 @@ export default function Settings() {
       </View>
 
       <View style={styles.block}>
+        <Text style={label}>Help</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/intro')} style={styles.row}>
+          <Text style={styles.rowText}>How Stash works</Text>
+          <Icon name="arrow" size={16} color={colors.ink} />
+        </Pressable>
+      </View>
+
+      <View style={styles.block}>
         <Text style={label}>Privacy</Text>
         <Text style={styles.body}>
           Your tickets never leave this phone unless you send them. No account, no server. Codes are read on-device.

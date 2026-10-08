@@ -94,6 +94,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="handle-share" options={{ animation: 'fade' }} />
         <Stack.Screen name="web" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="intro" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack>
       <ToastHost />
     </GestureHandlerRootView>

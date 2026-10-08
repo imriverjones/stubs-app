@@ -43,6 +43,15 @@ export default function Home() {
   const next = live.slice(0, NEXT_COUNT);
   const later = live.slice(NEXT_COUNT);
 
+  // First launch: show how Stash works.
+  const introSeen = useStore((s) => s.settings.introSeen);
+  useEffect(() => {
+    if (!introSeen) {
+      const t = setTimeout(() => router.push('/intro'), 50);
+      return () => clearTimeout(t);
+    }
+  }, [introSeen]);
+
   // Re-check every minute so tickets slide into Archive a few hours after they start.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
