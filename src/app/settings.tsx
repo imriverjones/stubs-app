@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
@@ -135,6 +136,11 @@ export default function Settings() {
 
       <Text style={styles.footer}>
         Stash {Constants.expoConfig?.version ?? ''} · {count} ticket{count === 1 ? '' : 's'} stored
+      </Text>
+      <Text style={styles.footer}>
+        {Updates.isEnabled && Updates.updateId && !Updates.isEmbeddedLaunch
+          ? `Update ${Updates.updateId.slice(0, 8)} · ${Updates.createdAt ? Updates.createdAt.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`
+          : 'Built-in version (no updates applied yet)'}
       </Text>
     </ScrollView>
   );
