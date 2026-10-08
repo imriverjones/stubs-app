@@ -38,12 +38,18 @@ export default function Add() {
         const saved = await saveDraft(fields);
         leave();
         if (saved) {
+          // Land on the tab it lives in.
+          router.navigate(saved.kind === 'stay' ? '/stays' : '/');
           showToast(
             isArchived(saved)
               ? 'Saved to Archive: that date has passed.'
-              : saved.reminderId
-                ? 'Saved. Reminder set.'
-                : 'Saved.',
+              : saved.kind === 'stay'
+                ? saved.reminderId
+                  ? 'Saved to Stays. Reminder set for check-in.'
+                  : 'Saved to Stays.'
+                : saved.reminderId
+                  ? 'Saved. Reminder set.'
+                  : 'Saved.',
           );
         }
       }}

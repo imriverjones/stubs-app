@@ -31,6 +31,8 @@ function extensionFor(file: IncomingFile): string {
 export type ImportOptions = {
   /** Fail instead of keeping the page when no code is found (e.g. a web capture). */
   requireCode?: boolean;
+  /** Added from the Stays tab: read it as check-in details whatever it looks like. */
+  asStay?: boolean;
 };
 
 export async function importFiles(files: IncomingFile[], options: ImportOptions = {}): Promise<Stub> {
@@ -102,6 +104,7 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
   });
   const fileTitle = titleFromFileName(files[0].name);
   // Airbnb / hotel screenshots: read check-in details instead of seats and gates.
+  if (options.asStay) found.kind = 'stay';
   if (found.kind === 'stay') {
     const st = extractStay(pageTexts.map((p) => p.text).join('\n'));
     found.date = st.date ?? found.date;

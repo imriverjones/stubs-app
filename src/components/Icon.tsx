@@ -2,6 +2,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 const paths = {
   plus: 'M12 5v14M5 12h14',
+  home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5M10 20v-5h4v5',
   back: 'M15 6l-6 6 6 6',
   arrow: 'M5 12h14M13 6l6 6-6 6',
   close: 'M6 6l12 12M18 6L6 18',

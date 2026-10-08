@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '../components/Icon';
-import { NotifyPrompt } from '../components/NotifyPrompt';
-import { Perforated } from '../components/Perforated';
-import { ScreenshotCards } from '../components/ScreenshotCards';
-import { RoundButton } from '../components/RoundButton';
-import { showToast } from '../components/Toast';
+import { Icon } from './Icon';
+import { NotifyPrompt } from './NotifyPrompt';
+import { Perforated } from './Perforated';
+import { ScreenshotCards } from './ScreenshotCards';
+import { RoundButton } from './RoundButton';
+import { showToast } from './Toast';
 import { dayKey, fmt, relativeDay } from '../lib/dates';
 import { summary } from '../lib/lockscreen';
 import { addSampleTicket, clearPast, groupStubs, removeStub, useStore } from '../lib/store';
@@ -46,9 +46,14 @@ function deleteWithUndo(stub: Stub) {
   showToast(`Deleted ${stub.title}`, { label: 'Undo', onPress: undo });
 }
 
-export default function Home() {
+export type HomeMode = 'tickets' | 'stays';
+
+/** A tab's list: Tickets (everything but stays) or Stays. */
+export function Home({ mode }: { mode: HomeMode }) {
   const insets = useSafeAreaInsets();
-  const stubs = useStore((s) => s.stubs);
+  const all = useStore((s) => s.stubs);
+  const stubs = useMemo(() => all.filter((s) => (s.kind === 'stay') === (mode === 'stays')), [all, mode]);
+  const isStays = mode === 'stays';
   const keepPastDays = useStore((s) => s.settings.keepPastDays);
   const today = dayKey();
   const [now, setNow] = useState(() => Date.now());
@@ -65,44 +70,45 @@ export default function Home() {
   // First launch: show how Stash works.
   const introSeen = useStore((s) => s.settings.introSeen);
   useEffect(() => {
-    if (!introSeen) {
+    if (!introSeen && !isStays) {
       const t = setTimeout(() => router.push('/intro'), 50);
       return () => clearTimeout(t);
     }
-  }, [introSeen]);
+  }, [introSeen, isStays]);
 
   // Re-check every minute so tickets slide into Archive a few hours after they start.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
-  const add = useAddTicket();
+  const add = useAddTicket(mode);
   const empty = stubs.length === 0;
 
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 96 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 40 }]}
       >
         <View style={styles.header}>
           <View>
             <Text style={label}>{fmt.short(today)}</Text>
-            <Text style={styles.wordmark}>Stash</Text>
+            <Text style={styles.wordmark}>{isStays ? 'Stays' : 'Stash'}</Text>
           </View>
           <View style={styles.headerButtons}>
             <RoundButton label="Settings" color="transparent" onPress={() => router.push('/settings')}>
               <Icon name="settings" color={colors.ink} stroke={2.2} />
             </RoundButton>
-            <RoundButton label="Add ticket" onPress={add.open} size={48}>
+            <RoundButton label={isStays ? 'Add a stay' : 'Add ticket'} onPress={add.open} size={48}>
               {add.busy ? <ActivityIndicator color={colors.accent} /> : <Icon name="plus" color={colors.accent} size={22} />}
             </RoundButton>
           </View>
         </View>
 
-        <ScreenshotCards />
-        <NotifyPrompt />
+        {!isStays && <ScreenshotCards />}
+        {!isStays && <NotifyPrompt />}
 
-        {empty && (
+        {empty && isStays && <StayEmptyState onScreens={add.screens} onPaste={() => router.push('/paste')} />}
+        {empty && !isStays && (
           <EmptyState
             onAdd={add.open}
             onSample={() => {
@@ -180,7 +186,9 @@ export default function Home() {
                 onPress={() =>
                   Alert.alert(
                     'Clear the archive?',
-                    `Deletes ${groups.archive.length} used or past ticket${groups.archive.length > 1 ? 's' : ''} for good.`,
+                    isStays
+                      ? `Deletes ${groups.archive.length} past stay${groups.archive.length > 1 ? 's' : ''} for good.`
+                      : `Deletes ${groups.archive.length} used or past ticket${groups.archive.length > 1 ? 's' : ''} for good.`,
                     [
                       { text: 'Cancel', style: 'cancel' },
                       { text: 'Clear', style: 'destructive', onPress: clearPast },
@@ -300,6 +308,41 @@ function SwipeToDelete({ stub, children }: { stub: Stub; children: React.ReactNo
     >
       {children}
     </ReanimatedSwipeable>
+  );
+}
+
+function StayEmptyState({ onScreens, onPaste }: { onScreens: () => void; onPaste: () => void }) {
+  return (
+    <Perforated
+      color={colors.paper}
+      ground={colors.ground}
+      style={{ marginTop: 8 }}
+      top={
+        <View style={styles.emptyTop}>
+          <Text style={label}>Check-in</Text>
+          <Text style={styles.emptyTitle}>Where you’re staying</Text>
+          <Text style={styles.emptyBody}>
+            Airbnb, hotel or campsite: screenshot the check-in screens, or copy the host’s message. Stash keeps the address,
+            door code and Wi-Fi in one place, and it stays here until check-out.
+          </Text>
+        </View>
+      }
+      bottom={
+        <View style={styles.emptyBottom}>
+          <Pressable accessibilityRole="button" onPress={onPaste} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
+            <Icon name="plus" size={18} color={colors.ink} />
+            <Text style={styles.primaryText}>Paste the host’s message</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onScreens}
+            style={({ pressed }) => [styles.sampleButton, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.sampleText}>Add check-in screenshots</Text>
+          </Pressable>
+        </View>
+      }
+    />
   );
 }
 

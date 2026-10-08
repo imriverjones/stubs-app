@@ -5,15 +5,15 @@ import { importFiles, type IncomingFile } from './importer';
 import { pickDocument, pickPhotos } from './pickers';
 
 /** "+" button flow: choose a source, scan it, open the confirm screen. */
-export function useAddTicket() {
+export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   const [busy, setBusy] = useState(false);
 
-  async function run(pick: () => Promise<IncomingFile[]>) {
+  async function run(pick: () => Promise<IncomingFile[]>, asStay = false) {
     const files = await pick();
     if (!files.length) return;
     setBusy(true);
     try {
-      await importFiles(files);
+      await importFiles(files, { asStay });
       router.push('/add');
     } catch (e) {
       Alert.alert("Couldn't add that ticket", e instanceof Error ? e.message : String(e));
@@ -42,24 +42,51 @@ export function useAddTicket() {
     );
   }
 
+  const screens = () => run(pickPhotos, true);
+
+  function openStays() {
+    const options = ['Paste the host’s message', 'Check-in screenshots', 'Cancel'];
+    const handle = (i: number) => {
+      if (i === 0) router.push('/paste');
+      if (i === 1) screens();
+    };
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: options.length - 1,
+          title: 'Add a stay',
+          message: 'In Airbnb: Messages → press and hold the host’s message → Copy. Or screenshot the check-in screens.',
+        },
+        handle,
+      );
+    } else {
+      Alert.alert('Add a stay', undefined, [
+        { text: options[0], onPress: () => handle(0) },
+        { text: options[1], onPress: () => handle(1) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }
+
   function open() {
+    if (mode === 'stays') return openStays();
     const ios = Platform.OS === 'ios';
     const options = ios
-      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Paste check-in details', 'Cancel']
-      : ['Screenshot from Photos', 'PDF from Files', 'Paste check-in details', 'Cancel'];
+      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
+      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
     const handle = (i: number) => {
       if (i === 0) run(pickPhotos);
       if (i === 1) run(pickDocument);
       if (ios && i === 2) askForLink();
-      if (options[i] === 'Paste check-in details') router.push('/paste');
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options,
           cancelButtonIndex: options.length - 1,
-          title: 'Add a ticket or stay',
-          message: 'Tip: in Mail or Safari, tap Share → Stash. For an Airbnb, screenshot the check-in screens or paste the host’s message.',
+          title: 'Add a ticket',
+          message: 'Tip: in Mail or Safari, tap Share → Stash.',
         },
         handle,
       );
@@ -67,11 +94,10 @@ export function useAddTicket() {
       Alert.alert('Add a ticket', undefined, [
         { text: options[0], onPress: () => handle(0) },
         { text: options[1], onPress: () => handle(1) },
-        { text: options[2], onPress: () => handle(2) },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }
   }
 
-  return { open, busy };
+  return { open, screens, busy };
 }

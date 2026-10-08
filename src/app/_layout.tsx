@@ -86,7 +86,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ground }}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ticket/[id]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
