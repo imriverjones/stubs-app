@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../components/CodeView';
 import { Icon } from '../components/Icon';
@@ -37,6 +38,52 @@ function TicketArt() {
           </View>
         }
       />
+    </View>
+  );
+}
+
+function Step({ n, children }: { n: number; children: ReactNode }) {
+  return (
+    <View style={art.step}>
+      <View style={art.stepNum}>
+        <Text style={art.stepNumText}>{n}</Text>
+      </View>
+      <View style={{ flex: 1 }}>{children}</View>
+    </View>
+  );
+}
+
+/** Mail, step by step: tap the attachment, tap Share, tap Stash. */
+function MailArt() {
+  return (
+    <View style={art.mail}>
+      <Step n={1}>
+        <Text style={art.stepText}>Open the email and tap the ticket</Text>
+        <View style={art.attach}>
+          <Icon name="doc" size={16} color={colors.ink} stroke={2.2} />
+          <Text style={art.attachText}>Tickets.pdf</Text>
+        </View>
+      </Step>
+      <Step n={2}>
+        <Text style={art.stepText}>Tap Share</Text>
+        <View style={art.shareIconBox}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path d="M12 3v12M7 8l5-5 5 5M5 12v8h14v-8" stroke={colors.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+      </Step>
+      <Step n={3}>
+        <Text style={art.stepText}>Tap Stash in the app row</Text>
+        <View style={art.appRow}>
+          {['#5AC8FA', '#34C759', '#FFCC00'].map((c) => (
+            <View key={c} style={[art.appDot, { backgroundColor: c }]} />
+          ))}
+          <View style={[art.appDot, art.appStash]}>
+            <Icon name="ticket" size={16} color={colors.ink} stroke={2.4} />
+          </View>
+        </View>
+      </Step>
+      <Text style={art.mailTip}>No Stash? Swipe the app row to More, then add Stash to Favourites so it’s first next time.</Text>
     </View>
   );
 }
@@ -131,9 +178,15 @@ const SLIDES: Slide[] = [
     art: <TicketArt />,
   },
   {
-    kicker: 'Adding tickets',
+    kicker: 'From your email',
     title: 'Share it to Stash',
-    body: 'In Mail, Files or Photos tap Share, then Stash. Or tap + for a screenshot, a PDF or a ticket link. A few people on one booking? Each code becomes its own ticket.',
+    body: 'Most tickets arrive by email. Tap the ticket, tap Share, then Stash. If the email has a “View tickets” button instead, press and hold it, then Share → Stash.',
+    art: <MailArt />,
+  },
+  {
+    kicker: 'Everything else',
+    title: 'Screenshots and links too',
+    body: 'Tap + to add a screenshot, a PDF from Files or a ticket link. A few people on one booking? Each code becomes its own ticket.',
     art: <ShareArt />,
   },
   {
@@ -193,14 +246,20 @@ export default function Intro() {
         style={{ flex: 1 }}
       >
         {SLIDES.map((s) => (
-          <View key={s.title} style={[styles.slide, { width }]}>
+          <ScrollView
+            key={s.title}
+            style={{ width }}
+            contentContainerStyle={styles.slide}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
             <View style={styles.artArea}>{s.art}</View>
             <View style={styles.copy}>
               <Text style={[label, { color: colors.accent }]}>{s.kicker}</Text>
               <Text style={styles.title}>{s.title}</Text>
               <Text style={styles.body}>{s.body}</Text>
             </View>
-          </View>
+          </ScrollView>
         ))}
       </ScrollView>
 
@@ -232,8 +291,8 @@ const styles = StyleSheet.create({
   bar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 44 },
   brand: { fontFamily: fonts.display, fontSize: 28, textTransform: 'uppercase', color: colors.ink },
   skip: { fontFamily: fonts.bodyMedium, fontSize: 16, color: colors.inkSoft },
-  slide: { flex: 1, paddingHorizontal: 24 },
-  artArea: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 },
+  slide: { flexGrow: 1, paddingHorizontal: 24 },
+  artArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240, paddingVertical: 12 },
   copy: { gap: 10, paddingBottom: 8 },
   title: { fontFamily: fonts.display, fontSize: 40, textTransform: 'uppercase', color: colors.ink },
   body: { fontFamily: fonts.body, fontSize: 17, lineHeight: 24, color: colors.ink },
@@ -254,6 +313,29 @@ const art = StyleSheet.create({
   top: { padding: 18, gap: 6 },
   title: { fontFamily: fonts.display, fontSize: 30, textTransform: 'uppercase', color: colors.ink },
   codeWrap: { alignItems: 'center', paddingVertical: 18 },
+
+  mail: { width: '100%', maxWidth: 330, gap: 10 },
+  step: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: colors.paper, borderRadius: 14, padding: 12 },
+  stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  stepNumText: { fontFamily: fonts.monoBold, fontSize: 13, color: colors.accent },
+  stepText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink, marginBottom: 8, marginTop: 3 },
+  attach: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderColor: colors.rule,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  attachText: { fontFamily: fonts.mono, fontSize: 13, color: colors.ink },
+  shareIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.paperWarm, alignItems: 'center', justifyContent: 'center' },
+  appRow: { flexDirection: 'row', gap: 10 },
+  appDot: { width: 36, height: 36, borderRadius: 10, opacity: 0.35 },
+  appStash: { opacity: 1, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.ink },
+  mailTip: { fontFamily: fonts.mono, fontSize: 12, lineHeight: 17, color: colors.inkSoft, paddingHorizontal: 4 },
 
   share: { width: '100%', maxWidth: 320, alignItems: 'center', gap: 10 },
   shareRow: {
