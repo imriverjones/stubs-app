@@ -66,7 +66,7 @@ export async function load() {
   } catch (e) {
     console.warn('Could not read stubs', e);
   }
-  const fixed = stubs.map(rebaseStub);
+  const fixed = stubs.map(rebaseStub).map(dropDuplicateBarcodes);
   const moved = JSON.stringify(fixed) !== JSON.stringify(stubs);
   set({ loaded: true, stubs: sortStubs(fixed), settings, seenShots, lockCard });
   if (moved) persist();
@@ -74,6 +74,13 @@ export async function load() {
 }
 
 /** Point a stub's saved files at the app's current folder (see rebase). */
+/** Older imports made a separate ticket for a barcode printed next to a QR code. Drop those. */
+function dropDuplicateBarcodes(s: Stub): Stub {
+  const squarePages = new Set(s.tickets.filter((t) => t.code && t.code.symbology !== 'linear').map((t) => t.pageUri));
+  const tickets = s.tickets.filter((t) => !(t.code?.symbology === 'linear' && squarePages.has(t.pageUri)));
+  return tickets.length === s.tickets.length || !tickets.length ? s : { ...s, tickets };
+}
+
 function rebaseStub(s: Stub): Stub {
   return {
     ...s,

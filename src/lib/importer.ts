@@ -73,7 +73,16 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
       pageUris.push(page.imageUri);
       const before = tickets.length;
       if (page.codes.length) {
-        for (const code of page.codes) {
+        // A page with a QR (or other square code) and a barcode is one ticket: keep the square code.
+        const square = page.codes.filter((c) => c.symbology !== 'linear');
+        const seen = new Set<string>();
+        const codes = (square.length ? square : page.codes).filter((c) => {
+          if (!c.payload) return true;
+          if (seen.has(c.payload)) return false;
+          seen.add(c.payload);
+          return true;
+        });
+        for (const code of codes) {
           tickets.push({ id: newId(), pageUri: page.imageUri, code });
         }
       } else if (!anyCodes) {

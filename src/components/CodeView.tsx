@@ -46,13 +46,15 @@ export function CodeView({ ticket, size }: Props) {
     );
   }
 
-  const uri = code?.cropUri || ticket.pageUri;
-  const wide = code?.symbology === 'pdf417' || code?.symbology === 'linear';
+  // Barcode only (no QR): show the whole ticket, barcode and all, as it was printed.
+  const whole = !code || (code.symbology === 'linear' && !!ticket.pageUri);
+  const uri = whole ? ticket.pageUri : code.cropUri || ticket.pageUri;
+  const wide = !whole && code?.symbology === 'pdf417';
   return (
     <View style={styles.quiet}>
       <Image
         source={{ uri }}
-        style={{ width: size, height: wide ? size * 0.55 : code ? size : size * 1.3 }}
+        style={{ width: size, height: wide ? size * 0.55 : whole ? size * 1.4 : size }}
         contentFit="contain"
         transition={0}
       />
