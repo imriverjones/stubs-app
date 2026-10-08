@@ -145,7 +145,7 @@ export default function Settings() {
           <Pressable accessibilityRole="button" onPress={askPersistentBanners} style={styles.row}>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.rowText}>Keep reminders on screen</Text>
-              <Text style={styles.note}>Set Banner Style to Persistent in iPhone Settings.</Text>
+              <Text style={styles.note}>Banner Style: Persistent · Show Previews: Always</Text>
             </View>
             <Icon name="arrow" size={16} color={colors.ink} />
           </Pressable>

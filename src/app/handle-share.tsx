@@ -19,17 +19,11 @@ export default function HandleShare() {
         .map((p) => ({ uri: p.contentUri as string, name: p.originalName, mimeType: p.contentMimeType })),
     [resolvedSharedPayloads],
   );
-  // A shared link (Safari page, link from Mail) opens in the in-app capture view.
-  const sharedUrl = useMemo(() => {
-    for (const p of resolvedSharedPayloads) {
-      const candidates = [p.contentType === 'website' ? p.contentUri : null, p.value];
-      for (const c of candidates) {
-        const m = c?.match(/https?:\/\/[^\s<>"']+/i);
-        if (m) return m[0];
-      }
-    }
-    return null;
-  }, [resolvedSharedPayloads]);
+  // A web link on its own: Stash doesn't capture pages any more, so ask for the ticket itself.
+  const sharedLink = useMemo(
+    () => resolvedSharedPayloads.some((p) => p.contentType === 'website' || /https?:\/\//i.test(p.value ?? '')),
+    [resolvedSharedPayloads],
+  );
   // Text shared from a host message or email that reads like check-in details.
   const stayText = useMemo(() => {
     const text = resolvedSharedPayloads
@@ -38,8 +32,12 @@ export default function HandleShare() {
       .join('\n');
     return text.length > 40 && looksLikeStay(text) ? text : null;
   }, [resolvedSharedPayloads]);
-  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0 && !sharedUrl && !stayText;
-  const message = failure ?? error?.message ?? (nothingUsable ? 'Share a PDF, an image or a link to the ticket.' : null);
+  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0 && !stayText;
+  const message = failure ?? error?.message ?? (nothingUsable
+      ? sharedLink
+        ? 'Stash can’t save web links. Open the page, screenshot the ticket with its QR code showing, and share the screenshot to Stash.'
+        : 'Share the ticket PDF or a screenshot of it.'
+      : null);
 
   useEffect(() => {
     if (isResolving || started.current || files.length || !stayText) return;
@@ -51,12 +49,6 @@ export default function HandleShare() {
       .finally(clearSharedPayloads);
   }, [files, stayText, isResolving, clearSharedPayloads]);
 
-  useEffect(() => {
-    if (isResolving || started.current || files.length || stayText || !sharedUrl) return;
-    started.current = true;
-    clearSharedPayloads();
-    router.replace({ pathname: '/web', params: { url: sharedUrl } });
-  }, [files, sharedUrl, stayText, isResolving, clearSharedPayloads]);
 
   useEffect(() => {
     if (isResolving || started.current || !files.length) return;
