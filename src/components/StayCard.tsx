@@ -113,7 +113,10 @@ export function StayCard({ stub }: { stub: Stub }) {
 
           {st.doorCode ? (
             <Block label="Door / key code">
-              <Text style={[styles.code, st.doorCode.length > 10 && { fontSize: 28 }]} selectable>
+              <Text
+                style={[styles.code, st.doorCode.length > 10 && { fontSize: 28 }, /[a-z]{3}/.test(st.doorCode) && styles.codeWords]}
+                selectable
+              >
                 {st.doorCode}
               </Text>
             </Block>
@@ -184,6 +187,7 @@ const styles = StyleSheet.create({
   address: { fontFamily: fonts.bodyBold, fontSize: 19, lineHeight: 25, color: colors.ink },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   code: { fontFamily: fonts.display, fontSize: 52, letterSpacing: 2, color: colors.ink },
+  codeWords: { fontFamily: fonts.bodyBold, fontSize: 20, lineHeight: 26, letterSpacing: 0 },
   wifiName: { fontFamily: fonts.bodyBold, fontSize: 18, color: colors.ink },
   password: { fontFamily: fonts.monoBold, fontSize: 18, color: colors.ink, flexShrink: 1 },
   phone: { fontFamily: fonts.mono, fontSize: 16, color: colors.ink },

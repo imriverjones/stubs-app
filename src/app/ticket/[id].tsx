@@ -89,7 +89,7 @@ export default function TicketScreen() {
       ...(!sample && canSendAll(stub)
         ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
         : []),
-      ...(sample || !hasPages ? [] : [{ label: isStay ? 'Re-read screenshots' : 'Re-read ticket details', run: reread }]),
+      ...(sample || (!hasPages && !(isStay && stub.stay?.notes)) ? [] : [{ label: isStay ? 'Re-read check-in details' : 'Re-read ticket details', run: reread }]),
       ...(sample || !hasPages
         ? []
         : [

@@ -85,7 +85,7 @@ function findWhen(lines: string[], today: Date): { in: When; out: When } {
         into.date ??= firstDate(cut, today);
         into.time ??= looseTime(stripDates(cut));
       }
-      if (into.date || into.time) return;
+      if (into.date && into.time) return;
     }
   };
   take(CHECK_IN_LINE, result.in);
@@ -98,11 +98,17 @@ const CHECK_OUT_LINE = /\bcheck[\s-]?out\b[\s:]*(?:by|before|until|time|is|at|:)
 const UI_LINE = /^(get directions|directions|copy( address)?|show (on )?map|open in maps|view map|map|message( the)? host|contact host|call|show more|read more|show listing|get help)$/i;
 const STREET =
   /\b(street|st\.?|road|rd\.?|avenue|ave\.?|lane|ln\.?|way|drive|dr\.?|close|place|square|sq\.?|terrace|crescent|court|grove|hill|row|walk|mews|odos|odós|οδός|via|viale|piazza|rue|avenue|calle|carrer|avenida|strasse|straße|weg|platz|gasse|rua|marina|harbour|harbor|quay)\b/i;
-const POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|\d{3}\s?\d{2}|\d{5}|\d{4}\s?[A-Z]{2}|[A-Z]\d[A-Z]\s?\d[A-Z]\d|\d{4})\b/;
+// UK, Greek (311 00), US (CA 91108), 5-digit, Dutch (1012 AB), Canadian, 4-digit before a town (5700 Zell). Not years.
+const POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}|\d{3}\s\d{2}|[A-Z]{2}\s\d{5}|(?!20\d{3}\b)\d{5}|\d{4}\s?[A-Z]{2}\b|[A-Z]\d[A-Z]\s?\d[A-Z]\d|(?!(?:19|20)\d{2}\b)\d{4}(?=\s+[A-Z]\p{L}))\b/u;
 const COUNTRY = /\b(greece|uk|united kingdom|england|scotland|wales|ireland|france|spain|italy|portugal|germany|austria|switzerland|netherlands|croatia|usa|united states|new zealand|australia)\b/i;
+
+const SENTENCE_WORDS = /\b(you|your|we|our|the|to|before|after|things|please|will|is|are|have|has|just|when|if)\b/i;
 
 function looksLikeAddress(l: string): boolean {
   if (l.length < 6 || l.length > 90 || UI_LINE.test(l)) return false;
+  // Prose ("…before your check-in on January 13, 2021.") isn't an address.
+  if (l.split(/\s+/).length > 9 || (SENTENCE_WORDS.test(l) && /[.!?]$/.test(l))) return false;
+  if (SENTENCE_WORDS.test(l) && l.split(/\s+/).length > 5) return false;
   const hasNumber = /\d/.test(l);
   return (STREET.test(l) && hasNumber) || (POSTCODE.test(l) && /,/.test(l)) || (COUNTRY.test(l) && /,/.test(l) && hasNumber);
 }
@@ -180,13 +186,15 @@ function findDoorCode(text: string): string | undefined {
   }
   if (found.length === 1) return found[0].code;
   if (found.length > 1) return found.map((f) => (f.name ? `${f.name} ${f.code}` : f.code)).join(' · ');
+  // "Access code: Last four digits of your phone number"
+  const words = flat.match(/\b(?:[Aa]ccess|[Dd]oor|[Ee]ntry|[Kk]eypad|[Ll]ock ?box|[Kk]ey ?box|[Kk]ey ?safe|[Gg]ate|[Bb]uilding)\s*[Cc]ode\s*[:\-]\s*([A-Za-z][^.:\n]{2,60}?)(?=\s{2,}|\s+[A-Z]{3,}|[.\n]|$)/);
   let bare: RegExpExecArray | null;
   const re = new RegExp(BARE_CODE_RE.source, 'gi');
   while ((bare = re.exec(flat))) {
     const before = flat.slice(Math.max(0, bare.index - 25), bare.index);
     if (!NOT_DOOR.test(before)) return bare[1];
   }
-  return undefined;
+  return words?.[1].trim();
 }
 
 function findWifi(lines: string[]): { name?: string; password?: string } {
@@ -239,11 +247,25 @@ function findPhone(text: string): string | undefined {
 }
 
 function findHost(text: string): string | undefined {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  for (let i = lines.length - 2; i >= Math.max(0, lines.length - 6); i--) {
+    if (/^(cheers|thanks|thank you|best|regards|kind regards|warm regards|best wishes|see you soon|all the best|take care)[,!.]?$/i.test(lines[i])) {
+      const name = lines[i + 1].match(/^([A-Z][\p{L}'’-]+(?:\s+(?:&|and)\s+[A-Z][\p{L}'’-]+)?)[.!]?$/u);
+      if (name) return name[1];
+    }
+  }
   const m = text.match(/(?:[Hh]osted by|[Yy]our host,?|[Hh]ost:|[Hh]ost is)\s+([A-Z][\p{L}'’-]+(?:\s+(?:&|and)\s+[A-Z][\p{L}'’-]+)?)/u);
   return m?.[1];
 }
 
 function findTitle(lines: string[], address: string | undefined, today: Date, avoid: string[]): string | undefined {
+  // The property name usually sits right above its street address.
+  const street = address?.split(',')[0].trim();
+  const at = street ? lines.findIndex((l) => l.replace(/\t/g, ' ').includes(street)) : -1;
+  const above = at > 0 ? lines[at - 1].replace(/\t/g, ' ').trim() : '';
+  if (above && above.length <= 45 && !/\d/.test(above) && !/[.!?:,]$/.test(above) && !SENTENCE_WORDS.test(above) && !/^(address|location|getting there)\b/i.test(above)) {
+    return above;
+  }
   for (const l of lines) {
     const m = l
       .replace(/\t/g, ' ')
@@ -259,7 +281,7 @@ function findTitle(lines: string[], address: string | undefined, today: Date, av
         !/wi-?fi|password|network|host|code|address|door|key|instructions|rules|manual|directions|getting there|phone|lift|floor|parking/i.test(l) &&
         !looksLikeAddress(l.replace(/\t/g, ' ')) &&
         !avoid.some((a) => a && l.includes(a)) &&
-        !/[.!?]$/.test(l.trim()) &&
+        !/[.!?:]$/.test(l.trim()) &&
         !/^(hi|hello|hey|dear|welcome|thanks|thank you|kind regards|best)\b/i.test(l.trim()) &&
         !/^(your trips?|trips?|upcoming|reservation details)$/i.test(l.trim()),
     ),

@@ -105,7 +105,8 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
   if (found.kind === 'stay') {
     const st = extractStay(pageTexts.map((p) => p.text).join('\n'));
     found.date = st.date ?? found.date;
-    found.time = st.time ?? found.time;
+    // A ticket-style time (e.g. cleaners 11:00–15:00) is often wrong for a stay: only use check-in.
+    found.time = st.time;
     found.title = st.title ?? found.title;
     found.shared = found.shared.filter((d) => d.label === 'Ref');
     found.perTicket = found.perTicket.map(() => []);
@@ -141,6 +142,11 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
  * and returns what it found. Uses the stored page images, so it works offline.
  */
 export async function rereadStub(stub: Stub): Promise<Extracted & { stayFound?: StayFound }> {
+  // A pasted stay has no pages: read its saved text again.
+  if (stub.kind === 'stay' && !stub.tickets.some((t) => t.pageUri)) {
+    const text = stub.stay?.notes ?? '';
+    return { shared: [], perTicket: [], stayFound: extractStay(text) };
+  }
   const pages = await readPages(stub);
   const found = extractDetails(pages, stub.tickets.length);
   if (stub.kind !== 'stay' && found.kind !== 'stay') return found;

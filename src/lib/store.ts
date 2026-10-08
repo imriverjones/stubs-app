@@ -188,13 +188,15 @@ export async function applyReread(id: string, found: Extracted & { stayFound?: S
     title: found.title && /^(ticket|tickets|e-?tickets?|screenshot|image|photo)?$/i.test(current.title.trim()) ? found.title : current.title,
   };
   if (found.stayFound) {
-    // Fill gaps only; anything the person typed stays.
+    // Asked to re-read a stay: what the reader finds now replaces its earlier guesses.
     const st = found.stayFound.stay;
-    const merged = { ...st, ...Object.fromEntries(Object.entries(current.stay ?? {}).filter(([, v]) => v)) };
-    next.stay = merged;
+    next.stay = { ...current.stay, ...Object.fromEntries(Object.entries(st).filter(([, v]) => v)), notes: current.stay?.notes ?? st.notes };
     next.kind = 'stay';
+    if (found.stayFound.time) next.time = found.stayFound.time;
+    if (found.stayFound.date) next.date = found.stayFound.date;
+    if (found.stayFound.title) next.title = found.stayFound.title;
   }
-  if (next.time !== current.time) {
+  if (next.time !== current.time || next.date !== current.date) {
     await cancelReminder(current.reminderId);
     next.reminderId = await scheduleReminder(next);
   }
