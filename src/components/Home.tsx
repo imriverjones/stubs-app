@@ -251,12 +251,6 @@ export function Home({ mode }: { mode: HomeMode }) {
   );
 }
 
-function todayTitleSize(title: string) {
-  const n = title.length;
-  if (n <= 18) return { fontSize: 40 };
-  if (n <= 32) return { fontSize: 33 };
-  return { fontSize: 27 };
-}
 
 function NextCard({ stub }: { stub: Stub }) {
   const themePhoto = useStore((s) => s.settings.themePhoto);
@@ -276,7 +270,7 @@ function NextCard({ stub }: { stub: Stub }) {
         ground={colors.ground}
         rule={colors.nightRule}
         top={
-          <View style={[styles.todayTop, cover ? styles.todayTopCover : null]}>
+          <View style={styles.todayTop}>
             {cover && (
               <>
                 <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
@@ -290,8 +284,15 @@ function NextCard({ stub }: { stub: Stub }) {
               </View>
               <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
             </View>
-            <Text style={[styles.todayTitle, todayTitleSize(stub.title)]}>{stub.title}</Text>
-            <Text style={styles.todaySub}>{subLine(stub, when)}</Text>
+            {/* Same height for every card: long names shrink to fit two lines, details stay on one. */}
+            <View style={styles.todayTitleBox}>
+              <Text style={styles.todayTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.55}>
+                {stub.title}
+              </Text>
+            </View>
+            <Text style={styles.todaySub} numberOfLines={1}>
+              {subLine(stub, when)}
+            </Text>
           </View>
         }
         bottom={
@@ -454,11 +455,11 @@ const styles = StyleSheet.create({
   dotOn: { width: 20, backgroundColor: colors.ink },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
-  todayTop: { padding: 20, paddingBottom: 18, gap: 10 },
+  todayTop: { padding: 20, paddingBottom: 18, gap: 10, height: 236, justifyContent: 'space-between' },
+  todayTitleBox: { flex: 1, justifyContent: 'center' },
   todayBottom: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
   tag: { backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.ink },
-  todayTopCover: { minHeight: 200, justifyContent: 'space-between' },
   coverShade: { backgroundColor: 'rgba(17,17,17,0.5)' },
   todayTitle: { fontFamily: fonts.display, fontSize: 40, textTransform: 'uppercase', color: colors.nightText },
   todaySub: { fontFamily: fonts.mono, fontSize: 13, color: '#D6D6CF' },
