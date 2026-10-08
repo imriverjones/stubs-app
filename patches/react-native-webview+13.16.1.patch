@@ -1,0 +1,22 @@
+diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+index 7f5c24d..da4bf4a 100644
+--- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
++++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
+@@ -1382,7 +1382,7 @@ RCTAutoInsetsProtocol>
+                 }
+ 
+                 // Allow all navigation by default
+-                decisionHandler(WKNavigationActionPolicyAllow);
++                decisionHandler((WKNavigationActionPolicy)(WKNavigationActionPolicyAllow + 2)); // Stash: allow, but never hand the page to another app (universal links)
+             });
+ 
+         }];
+@@ -1417,7 +1417,7 @@ RCTAutoInsetsProtocol>
+     }
+ 
+     // Allow all navigation by default
+-    decisionHandler(WKNavigationActionPolicyAllow);
++    decisionHandler((WKNavigationActionPolicy)(WKNavigationActionPolicyAllow + 2)); // Stash: allow, but never hand the page to another app (universal links)
+ }
+ 
+ /**
