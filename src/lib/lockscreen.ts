@@ -79,10 +79,11 @@ async function propsFor(stub: Stub) {
   const first = stub.tickets[0];
   return {
     title: stub.title.toUpperCase(),
-    label: `${kind}${n > 1 ? ` · ${n} TICKETS` : ''}`.toUpperCase(),
+    label: stub.kind === 'stay' ? 'CHECK-IN' : `${kind}${n > 1 ? ` · ${n} TICKETS` : ''}`.toUpperCase(),
     when: stub.time ?? 'Today',
-    detail: summary([...(first?.details ?? []), ...(stub.details ?? [])]),
-    code: await codeImage(stub),
+    // Stays show where to go; the door code stays off the lock screen.
+    detail: stub.kind === 'stay' ? (stub.stay?.address?.split(',').slice(0, 2).join(',') ?? '') : summary([...(first?.details ?? []), ...(stub.details ?? [])]),
+    code: stub.kind === 'stay' ? '' : await codeImage(stub),
   };
 }
 

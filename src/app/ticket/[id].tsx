@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../../components/CodeView';
+import { StayCard } from '../../components/StayCard';
 import { Icon } from '../../components/Icon';
 import { Perforated } from '../../components/Perforated';
 import { RoundButton } from '../../components/RoundButton';
@@ -37,7 +38,7 @@ export default function TicketScreen() {
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
   useKeepAwake();
-  useMaxBrightness();
+  useMaxBrightness(stub?.kind !== 'stay');
 
   if (!stub) {
     return (
@@ -57,16 +58,39 @@ export default function TicketScreen() {
 
   const more = () => {
     const sample = !!stub.sample;
+    const isStay = stub.kind === 'stay';
+    const hasPages = stub.tickets.some((t) => t.pageUri);
     const items: { label: string; run: () => void; destructive?: boolean }[] = [
-      ...(sample ? [] : [{
+      ...(isStay
+        ? [
+            {
+              label: 'Send stay details',
+              run: () => {
+                const st = stub.stay ?? {};
+                const lines = [
+                  stub.title,
+                  `Check-in: ${stub.date}${stub.time ? ` ${stub.time}` : ''}`,
+                  st.checkOutDate || st.checkOutTime ? `Check-out: ${st.checkOutDate ?? ''} ${st.checkOutTime ?? ''}`.trim() : '',
+                  st.address ? `Address: ${st.address}` : '',
+                  st.doorCode ? `Door code: ${st.doorCode}` : '',
+                  st.wifiName ? `Wi-Fi: ${st.wifiName}` : '',
+                  st.wifiPassword ? `Wi-Fi password: ${st.wifiPassword}` : '',
+                  st.phone ? `Host: ${[st.host, st.phone].filter(Boolean).join(' ')}` : '',
+                ].filter(Boolean);
+                Share.share({ message: lines.join('\n') });
+              },
+            },
+          ]
+        : []),
+      ...(sample || isStay ? [] : [{
         label: count > 1 ? `Send ticket ${page + 1}` : 'Send ticket',
         run: () => sendTicket(stub, page).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
       }]),
       ...(!sample && canSendAll(stub)
         ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
         : []),
-      ...(sample ? [] : [{ label: 'Re-read ticket details', run: reread }]),
-      ...(sample
+      ...(sample || !hasPages ? [] : [{ label: isStay ? 'Re-read screenshots' : 'Re-read ticket details', run: reread }]),
+      ...(sample || !hasPages
         ? []
         : [
             {
@@ -147,7 +171,7 @@ export default function TicketScreen() {
         <RoundButton label="Back" onPress={() => router.back()} size={44}>
           <Icon name="back" color={colors.paper} />
         </RoundButton>
-        {count > 1 ? (
+        {count > 1 && stub.kind !== 'stay' ? (
           <View style={styles.counter}>
             <Text style={styles.counterText}>
               {page + 1} / {count}
@@ -161,6 +185,12 @@ export default function TicketScreen() {
         </RoundButton>
       </View>
 
+      {stub.kind === 'stay' ? (
+        <View style={{ paddingHorizontal: H_PAD }}>
+          <StayCard stub={stub} />
+        </View>
+      ) : (
+        <>
       <ScrollView
         horizontal
         pagingEnabled
@@ -185,6 +215,9 @@ export default function TicketScreen() {
         </View>
       )}
 
+        </>
+      )}
+
       <View style={{ flex: 1, minHeight: 8 }} />
 
       <View style={styles.bottomRow}>
@@ -194,7 +227,9 @@ export default function TicketScreen() {
           onPress={toggleUsed}
           style={({ pressed }) => [styles.solid, pressed && { opacity: 0.8 }]}
         >
-          <Text style={styles.solidText}>{stub.usedAt ? 'Not used yet' : 'Used'}</Text>
+          <Text style={styles.solidText}>
+            {stub.kind === 'stay' ? (stub.usedAt ? 'Not checked out' : 'Checked out') : stub.usedAt ? 'Not used yet' : 'Used'}
+          </Text>
         </Pressable>
         {stub.sample ? (
           <Pressable
@@ -208,13 +243,13 @@ export default function TicketScreen() {
           >
             <Text style={styles.outlineText}>Remove sample</Text>
           </Pressable>
-        ) : (
+        ) : stub.kind === 'stay' && !stub.tickets.some((t) => t.pageUri) ? null : (
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
             style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
           >
-            <Text style={styles.outlineText}>View original</Text>
+            <Text style={styles.outlineText}>{stub.kind === 'stay' ? 'Screenshots' : 'View original'}</Text>
           </Pressable>
         )}
       </View>

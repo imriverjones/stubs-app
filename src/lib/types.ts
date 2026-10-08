@@ -1,4 +1,4 @@
-export type Kind = 'ferry' | 'train' | 'flight' | 'bus' | 'car' | 'gig' | 'event' | 'activity' | 'visa' | 'medical' | 'other';
+export type Kind = 'ferry' | 'train' | 'flight' | 'bus' | 'car' | 'stay' | 'gig' | 'event' | 'activity' | 'visa' | 'medical' | 'other';
 
 export const KINDS: { id: Kind; label: string }[] = [
   { id: 'ferry', label: 'Ferry' },
@@ -6,6 +6,7 @@ export const KINDS: { id: Kind; label: string }[] = [
   { id: 'flight', label: 'Flight' },
   { id: 'bus', label: 'Bus' },
   { id: 'car', label: 'Car' },
+  { id: 'stay', label: 'Stay' },
   { id: 'gig', label: 'Gig' },
   { id: 'event', label: 'Event' },
   { id: 'activity', label: 'Activity' },
@@ -35,6 +36,23 @@ export type Ticket = {
   details?: Detail[];
 };
 
+/** Check-in details for an Airbnb, hotel or campsite (kind 'stay'). Date/time on the stub are check-in. */
+export type Stay = {
+  address?: string;
+  /** YYYY-MM-DD */
+  checkOutDate?: string;
+  /** HH:mm */
+  checkOutTime?: string;
+  /** Door, key box or gate code. */
+  doorCode?: string;
+  wifiName?: string;
+  wifiPassword?: string;
+  host?: string;
+  phone?: string;
+  /** The check-in instructions, as read or pasted. */
+  notes?: string;
+};
+
 /** Something you're going to: one date, one or more tickets. */
 export type Stub = {
   id: string;
@@ -56,6 +74,8 @@ export type Stub = {
   createdAt: number;
   /** Set when the person marks the ticket as used; it moves to Archive. */
   usedAt?: number;
+  /** Check-in details when kind is 'stay'. */
+  stay?: Stay;
   /** Photo the person chose for the card on the home screen. */
   cover?: string;
   /** A demo ticket from the empty screen: no files, removed when a real ticket is saved. */

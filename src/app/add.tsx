@@ -25,9 +25,9 @@ export default function Add() {
 
   return (
     <StubForm
-      heading="New ticket"
+      heading={draft.kind === 'stay' ? 'New stay' : 'New ticket'}
       stub={draft}
-      saveLabel={draft.tickets.length > 1 ? `Save ${draft.tickets.length} tickets` : 'Save ticket'}
+      saveLabel={draft.kind === 'stay' ? 'Save stay' : draft.tickets.length > 1 ? `Save ${draft.tickets.length} tickets` : 'Save ticket'}
       onCancel={() => {
         leaving.current = true;
         discardDraft();

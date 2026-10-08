@@ -18,7 +18,25 @@ import { useAddTicket } from '../lib/useAddTicket';
 import { colors, fonts, label } from '../theme';
 
 const kindLabel = (s: Stub) => KINDS.find((k) => k.id === s.kind)?.label ?? 'Ticket';
-const ticketCount = (s: Stub) => (s.tickets.length > 1 ? `${s.tickets.length} tickets` : '1 ticket');
+const ticketCount = (s: Stub) =>
+  s.kind === 'stay'
+    ? s.stay?.checkOutDate
+      ? `Until ${fmt.short(s.stay.checkOutDate)}`
+      : ''
+    : s.tickets.length > 1
+      ? `${s.tickets.length} tickets`
+      : '1 ticket';
+/** Under the title on the home card. */
+function subLine(s: Stub, when: string) {
+  if (s.kind === 'stay') {
+    const place = s.stay?.address?.split(',')[0];
+    const checkIn = s.date < dayKey() ? 'Staying now' : `${when}${s.time ? ` · check-in ${s.time}` : ''}`;
+    return [checkIn, place].filter(Boolean).join(' · ');
+  }
+  return [s.time ? `${when} · ${s.time}` : when, summary([...(s.tickets[0]?.details ?? []), ...(s.details ?? [])])]
+    .filter(Boolean)
+    .join(' · ');
+}
 const NEXT_COUNT = 5;
 const CARD_GAP = 12;
 const openStub = (id: string) => router.push({ pathname: '/ticket/[id]', params: { id } });
@@ -222,18 +240,14 @@ function NextCard({ stub }: { stub: Stub }) {
               <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
             </View>
             <Text style={[styles.todayTitle, todayTitleSize(stub.title)]}>{stub.title}</Text>
-            <Text style={styles.todaySub}>
-              {[stub.time ? `${when} · ${stub.time}` : when, summary([...(stub.tickets[0]?.details ?? []), ...(stub.details ?? [])])]
-                .filter(Boolean)
-                .join(' · ')}
-            </Text>
+            <Text style={styles.todaySub}>{subLine(stub, when)}</Text>
           </View>
         }
         bottom={
           <View style={[styles.rowBetween, styles.todayBottom]}>
-            <Text style={styles.todayMeta}>Tap to show code</Text>
+            <Text style={styles.todayMeta}>{stub.kind === 'stay' ? 'Address, door code, Wi-Fi' : 'Tap to show code'}</Text>
             <View style={styles.pill}>
-              <Text style={styles.pillText}>Show code</Text>
+              <Text style={styles.pillText}>{stub.kind === 'stay' ? 'Open' : 'Show code'}</Text>
               <Icon name="arrow" size={16} color={colors.ink} />
             </View>
           </View>
@@ -244,7 +258,7 @@ function NextCard({ stub }: { stub: Stub }) {
 }
 
 function StubRow({ stub, faded }: { stub: Stub; faded?: boolean }) {
-  const meta = [kindLabel(stub), stub.time, stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
+  const meta = [kindLabel(stub), stub.time, stub.kind === 'stay' ? ticketCount(stub) || relativeDay(stub.date) : stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
     .filter(Boolean)
     .join(' · ');
   return (

@@ -1,6 +1,7 @@
 // Reads the useful bits off a ticket's text: event date and time, seat, gate, platform,
 // booking reference and so on. Pure functions, no I/O, so it's easy to test.
 import type { Detail, Kind } from './types';
+import { looksLikeStay } from './stay';
 
 /** A page's text, how many tickets the importer made from it, and those tickets' barcode contents. */
 export type PageText = { text: string; codes: number; payloads?: (string | undefined)[] };
@@ -274,9 +275,9 @@ function fullYear(y: string | undefined, m: number, d: number, today: Date): num
   return candidate < startOfToday ? thisYear + 1 : thisYear;
 }
 
-type DateHit = { date: string; line: number; score: number };
+export type DateHit = { date: string; line: number; score: number };
 
-function findDates(lines: string[], today: Date): DateHit[] {
+export function findDates(lines: string[], today: Date): DateHit[] {
   const hits: DateHit[] = [];
   const add = (date: string | null, line: number) => {
     if (!date) return;
@@ -320,7 +321,7 @@ function findDates(lines: string[], today: Date): DateHit[] {
   return hits;
 }
 
-function parseTime(s: string): string | null {
+export function parseTime(s: string): string | null {
   const m = s.match(/\b(\d{1,2})[:.h](\d{2})\s*(a\.?m\.?|p\.?m\.?)?(?![\d.])/i);
   if (!m) return null;
   let h = +m[1];
@@ -361,6 +362,7 @@ function findTime(lines: string[], dateLine: number | undefined): string | undef
 
 function guessKind(text: string): Kind | undefined {
   const t = text.toLowerCase();
+  if (looksLikeStay(text)) return 'stay';
   if (/\b(ferry|ferries|vessel|port|sailing|deck|ship|ναυτιλ|πλοίο)\b/.test(t)) return 'ferry';
   if (/\b(boarding pass|flight|airline|terminal)\b/.test(t)) return 'flight';
   if (/\b(train|rail|railway|platform|coach [a-z]\b|carriage|bahn|trenitalia|eurostar)\b/.test(t)) return 'train';

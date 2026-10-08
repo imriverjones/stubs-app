@@ -82,8 +82,18 @@ export async function scheduleReminder(stub: Stub): Promise<string | undefined> 
   try {
     return await Notifications.scheduleNotificationAsync({
       content: {
-        title: stub.time ? `${stub.title} at ${stub.time}` : `Today: ${stub.title}`,
-        body: count > 1 ? `Tap to open your ${count} tickets.` : 'Tap to open your ticket.',
+        title:
+          stub.kind === 'stay'
+            ? `Check-in today: ${stub.title}${stub.time ? ` from ${stub.time}` : ''}`
+            : stub.time
+              ? `${stub.title} at ${stub.time}`
+              : `Today: ${stub.title}`,
+        body:
+          stub.kind === 'stay'
+            ? [stub.stay?.address?.split(',').slice(0, 2).join(','), 'Tap for directions, door code and Wi-Fi.'].filter(Boolean).join('. ')
+            : count > 1
+              ? `Tap to open your ${count} tickets.`
+              : 'Tap to open your ticket.',
         data: { stubId: stub.id },
         // Breaks through Focus modes and stays prominent on the lock screen.
         interruptionLevel: 'timeSensitive',

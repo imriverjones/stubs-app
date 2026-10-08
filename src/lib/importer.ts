@@ -1,7 +1,8 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { isScannerAvailable, scanFileAsync, type ScannedPage } from '../../modules/stubs-scanner';
 import { dayKey } from './dates';
-import { extractDetails, type PageText } from './extract';
+import { extractDetails, type Extracted, type PageText } from './extract';
+import { extractStay, type StayFound } from './stay';
 import { deleteStubFiles, newId, stubDir, titleFromFileName } from './files';
 import { setDraft } from './store';
 import type { Stub, Ticket } from './types';
@@ -95,10 +96,21 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
 
   // Read date, time, seats, gates and refs off the ticket text.
   const found = extractDetails(pageTexts, tickets.length);
+  let stayFound: Stub['stay'];
   tickets.forEach((t, i) => {
     if (found.perTicket[i]?.length) t.details = found.perTicket[i];
   });
   const fileTitle = titleFromFileName(files[0].name);
+  // Airbnb / hotel screenshots: read check-in details instead of seats and gates.
+  if (found.kind === 'stay') {
+    const st = extractStay(pageTexts.map((p) => p.text).join('\n'));
+    found.date = st.date ?? found.date;
+    found.time = st.time ?? found.time;
+    found.title = st.title ?? found.title;
+    found.shared = found.shared.filter((d) => d.label === 'Ref');
+    found.perTicket = found.perTicket.map(() => []);
+    stayFound = st.stay;
+  }
   const autofill: Stub['autofill'] = [];
   if (found.date) autofill.push('date');
   if (found.time) autofill.push('time');
@@ -112,6 +124,7 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
     date: found.date ?? dayKey(),
     time: found.time,
     details: found.shared.length ? found.shared : undefined,
+    stay: stayFound,
     autofill,
     tickets,
     sourceUri,
@@ -127,9 +140,12 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
  * Reads an already-saved ticket again (e.g. one saved before Stash could read details)
  * and returns what it found. Uses the stored page images, so it works offline.
  */
-export async function rereadStub(stub: Stub) {
+export async function rereadStub(stub: Stub): Promise<Extracted & { stayFound?: StayFound }> {
   const pages = await readPages(stub);
-  return extractDetails(pages, stub.tickets.length);
+  const found = extractDetails(pages, stub.tickets.length);
+  if (stub.kind !== 'stay' && found.kind !== 'stay') return found;
+  const stayFound = extractStay(pages.map((p) => p.text).join('\n'));
+  return { ...found, stayFound, time: stayFound.time ?? found.time, title: stayFound.title ?? found.title };
 }
 
 /** The text Stash reads off each saved page (for "Send what Stash read" in the ticket menu). */
@@ -173,4 +189,33 @@ async function readPages(stub: Stub): Promise<PageText[]> {
     scratch.delete();
   } catch {}
   return pages;
+}
+
+/** Check-in details pasted as text (a host message, an email): a stay with no files. */
+export function importText(text: string): Stub {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error('Paste the check-in details first.');
+  const st = extractStay(trimmed);
+  const ref = extractDetails([{ text: trimmed, codes: 0 }], 0).shared.filter((d) => d.label === 'Ref');
+  const autofill: Stub['autofill'] = ['kind'];
+  if (st.date) autofill.push('date');
+  if (st.time) autofill.push('time');
+  if (st.title) autofill.push('title');
+  const draft: Stub = {
+    id: newId(),
+    title: st.title ?? '',
+    kind: 'stay',
+    date: st.date ?? dayKey(),
+    time: st.time,
+    details: ref.length ? ref : undefined,
+    stay: { ...st.stay, notes: trimmed.slice(0, 4000) },
+    autofill,
+    tickets: [],
+    sourceUri: '',
+    sourceName: 'Pasted text',
+    pageUris: [],
+    createdAt: Date.now(),
+  };
+  setDraft(draft);
+  return draft;
 }

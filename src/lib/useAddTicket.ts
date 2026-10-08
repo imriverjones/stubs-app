@@ -45,20 +45,21 @@ export function useAddTicket() {
   function open() {
     const ios = Platform.OS === 'ios';
     const options = ios
-      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
-      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
+      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Paste check-in details', 'Cancel']
+      : ['Screenshot from Photos', 'PDF from Files', 'Paste check-in details', 'Cancel'];
     const handle = (i: number) => {
       if (i === 0) run(pickPhotos);
       if (i === 1) run(pickDocument);
       if (ios && i === 2) askForLink();
+      if (options[i] === 'Paste check-in details') router.push('/paste');
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
         {
           options,
           cancelButtonIndex: options.length - 1,
-          title: 'Add a ticket',
-          message: 'Tip: in Mail or Safari, tap Share → Stash.',
+          title: 'Add a ticket or stay',
+          message: 'Tip: in Mail or Safari, tap Share → Stash. For an Airbnb, screenshot the check-in screens or paste the host’s message.',
         },
         handle,
       );
@@ -66,6 +67,7 @@ export function useAddTicket() {
       Alert.alert('Add a ticket', undefined, [
         { text: options[0], onPress: () => handle(0) },
         { text: options[1], onPress: () => handle(1) },
+        { text: options[2], onPress: () => handle(2) },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }

@@ -14,12 +14,22 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey, fmt, timeKey, toDate } from '../lib/dates';
 import { reminderDate } from '../lib/reminders';
-import { KINDS, type Kind, type Stub } from '../lib/types';
+import { KINDS, type Kind, type Stay, type Stub } from '../lib/types';
 import { colors, fonts, label } from '../theme';
 import { CodeView } from './CodeView';
 import { Perforated } from './Perforated';
 
-export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time'>;
+export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay'>;
+
+const STAY_FIELDS: { key: keyof Stay; label: string; placeholder: string; multiline?: boolean; mono?: boolean; keyboard?: 'phone-pad' }[] = [
+  { key: 'address', label: 'Address', placeholder: 'Street, town, postcode', multiline: true },
+  { key: 'doorCode', label: 'Door / key code', placeholder: 'e.g. 4821', mono: true },
+  { key: 'wifiName', label: 'Wi-Fi name', placeholder: 'Network name', mono: true },
+  { key: 'wifiPassword', label: 'Wi-Fi password', placeholder: 'Password', mono: true },
+  { key: 'host', label: 'Host', placeholder: 'Name' },
+  { key: 'phone', label: 'Host phone', placeholder: '+30 …', keyboard: 'phone-pad' },
+  { key: 'notes', label: 'Instructions', placeholder: 'Anything else: parking, which door, where the key is…', multiline: true },
+];
 
 type Props = {
   heading: string;
@@ -42,6 +52,11 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
   const [kind, setKind] = useState<Kind>(stub.kind);
   const [date, setDate] = useState(stub.date);
   const [time, setTime] = useState<string | undefined>(stub.time);
+  const [stay, setStay] = useState<Stay>(stub.stay ?? {});
+  const isStay = kind === 'stay';
+  const setStayField = (key: keyof Stay, value: string | undefined) => setStay((s) => ({ ...s, [key]: value || undefined }));
+  const onOutDate = (_: DateTimePickerEvent, d?: Date) => d && setStayField('checkOutDate', dayKey(d));
+  const onOutTime = (_: DateTimePickerEvent, d?: Date) => d && setStayField('checkOutTime', timeKey(d));
   const first = stub.tickets[0];
   const count = stub.tickets.length;
   // Shared details plus the first ticket's own (seat etc.); with several tickets, note that seats vary.
@@ -75,7 +90,17 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
           ground={colors.ground}
           top={
             <View style={styles.cardTop}>
-              <Text style={label}>{count > 1 ? `${count} tickets found` : first?.code ? 'Code found' : 'No code found, keeping the page'}</Text>
+              <Text style={label}>
+                {isStay
+                  ? count
+                    ? `Stay · ${count} screenshot${count === 1 ? '' : 's'} kept`
+                    : 'Stay'
+                  : count > 1
+                    ? `${count} tickets found`
+                    : first?.code
+                      ? 'Code found'
+                      : 'No code found, keeping the page'}
+              </Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
@@ -91,9 +116,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
               />
             </View>
           }
-          bottom={
-            <View style={styles.cardBottom}>{first && <CodeView ticket={first} size={150} />}</View>
-          }
+          bottom={isStay ? undefined : <View style={styles.cardBottom}>{first && <CodeView ticket={first} size={150} />}</View>}
         />
 
         {readDetails.length > 0 && (
@@ -132,7 +155,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
 
         <View style={styles.box}>
           <View style={styles.boxRow}>
-            <Text style={styles.boxLabel}>Date</Text>
+            <Text style={styles.boxLabel}>{isStay ? 'Check-in' : 'Date'}</Text>
             {Platform.OS === 'ios' ? (
               <DateTimePicker value={toDate(date)} mode="date" display="compact" onChange={onDate} accentColor={colors.accent} />
             ) : (
@@ -143,7 +166,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
           </View>
           <View style={styles.divider} />
           <View style={styles.boxRow}>
-            <Text style={styles.boxLabel}>Set a time</Text>
+            <Text style={styles.boxLabel}>{isStay ? 'Check-in time' : 'Set a time'}</Text>
             <Switch
               value={time != null}
               onValueChange={(on) => setTime(on ? time ?? '09:00' : undefined)}
@@ -175,6 +198,101 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
           )}
         </View>
         <Text style={styles.reminder}>{reminderText(date, time)}</Text>
+
+        {isStay && (
+          <>
+            <View style={styles.box}>
+              <View style={styles.boxRow}>
+                <Text style={styles.boxLabel}>Check-out</Text>
+                <Switch
+                  value={stay.checkOutDate != null}
+                  onValueChange={(on) => setStayField('checkOutDate', on ? stay.checkOutDate ?? date : undefined)}
+                  trackColor={{ true: colors.accent, false: '#D6D6CF' }}
+                  accessibilityLabel="Set a check-out date"
+                />
+              </View>
+              {stay.checkOutDate != null && (
+                <>
+                  <View style={styles.divider} />
+                  <View style={styles.boxRow}>
+                    <Text style={styles.boxLabel}>Date</Text>
+                    {Platform.OS === 'ios' ? (
+                      <DateTimePicker
+                        value={toDate(stay.checkOutDate)}
+                        minimumDate={toDate(date)}
+                        mode="date"
+                        display="compact"
+                        onChange={onOutDate}
+                        accentColor={colors.accent}
+                      />
+                    ) : (
+                      <Pressable
+                        onPress={() => DateTimePickerAndroid.open({ value: toDate(stay.checkOutDate!), mode: 'date', onChange: onOutDate })}
+                        style={styles.valueBtn}
+                      >
+                        <Text style={styles.value}>{fmt.short(stay.checkOutDate)}</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.boxRow}>
+                    <Text style={styles.boxLabel}>Time</Text>
+                    {Platform.OS === 'ios' ? (
+                      <DateTimePicker
+                        value={toDate(stay.checkOutDate, stay.checkOutTime ?? '11:00')}
+                        mode="time"
+                        display="compact"
+                        onChange={onOutTime}
+                        accentColor={colors.accent}
+                        minuteInterval={5}
+                      />
+                    ) : (
+                      <Pressable
+                        onPress={() =>
+                          DateTimePickerAndroid.open({
+                            value: toDate(stay.checkOutDate!, stay.checkOutTime ?? '11:00'),
+                            mode: 'time',
+                            is24Hour: true,
+                            onChange: onOutTime,
+                          })
+                        }
+                        style={styles.valueBtn}
+                      >
+                        <Text style={styles.value}>{stay.checkOutTime ?? '11:00'}</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+
+            <View style={styles.field}>
+              <Text style={label}>Getting in</Text>
+              <View style={styles.box}>
+                {STAY_FIELDS.map((f, i) => (
+                  <View key={f.key}>
+                    {i > 0 && <View style={styles.divider} />}
+                    <View style={styles.inputRow}>
+                      <Text style={styles.inputLabel}>{f.label}</Text>
+                      <TextInput
+                        value={stay[f.key] ?? ''}
+                        onChangeText={(v) => setStayField(f.key, v)}
+                        placeholder={f.placeholder}
+                        placeholderTextColor="#A8A8A0"
+                        multiline={f.multiline}
+                        keyboardType={f.keyboard}
+                        autoCapitalize={f.mono ? 'none' : 'sentences'}
+                        autoCorrect={!f.mono}
+                        style={[styles.input, f.mono && { fontFamily: fonts.mono }, f.key === 'notes' && { minHeight: 90 }]}
+                        accessibilityLabel={f.label}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
         {(filled.includes('date') || filled.includes('time')) && (
           <Text style={styles.reminder}>
             {filled.includes('date') && filled.includes('time') ? 'Date and time' : filled.includes('date') ? 'Date' : 'Time'}{' '}
@@ -186,7 +304,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => onSave({ title, kind, date, time })}
+          onPress={() => onSave({ title, kind, date, time, stay: isStay ? stay : stub.stay })}
           style={({ pressed }) => [styles.save, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.saveText}>{saveLabel}</Text>
@@ -228,6 +346,9 @@ const styles = StyleSheet.create({
   detail: { backgroundColor: colors.paper, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, gap: 2 },
   detailLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.inkFaint },
   detailValue: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
+  inputRow: { paddingVertical: 12, gap: 4 },
+  inputLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.inkFaint },
+  input: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink, padding: 0, minHeight: 24 },
   reminder: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft, marginTop: -10 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.ground },
   save: { height: 56, borderRadius: 999, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },

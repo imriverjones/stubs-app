@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useIncomingShare } from 'expo-sharing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { importFiles, type IncomingFile } from '../lib/importer';
+import { importFiles, importText, type IncomingFile } from '../lib/importer';
+import { looksLikeStay } from '../lib/stay';
 import { colors, fonts, label } from '../theme';
 
 /** Landing screen for Share → Stubs from Mail, Files, Photos, etc. */
@@ -29,15 +30,33 @@ export default function HandleShare() {
     }
     return null;
   }, [resolvedSharedPayloads]);
-  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0 && !sharedUrl;
+  // Text shared from a host message or email that reads like check-in details.
+  const stayText = useMemo(() => {
+    const text = resolvedSharedPayloads
+      .filter((p) => p.contentType === 'text' && p.value)
+      .map((p) => p.value as string)
+      .join('\n');
+    return text.length > 40 && looksLikeStay(text) ? text : null;
+  }, [resolvedSharedPayloads]);
+  const nothingUsable = !isResolving && resolvedSharedPayloads.length > 0 && files.length === 0 && !sharedUrl && !stayText;
   const message = failure ?? error?.message ?? (nothingUsable ? 'Share a PDF, an image or a link to the ticket.' : null);
 
   useEffect(() => {
-    if (isResolving || started.current || files.length || !sharedUrl) return;
+    if (isResolving || started.current || files.length || !stayText) return;
+    started.current = true;
+    Promise.resolve()
+      .then(() => importText(stayText))
+      .then(() => router.replace('/add'))
+      .catch((e) => setFailure(e instanceof Error ? e.message : String(e)))
+      .finally(clearSharedPayloads);
+  }, [files, stayText, isResolving, clearSharedPayloads]);
+
+  useEffect(() => {
+    if (isResolving || started.current || files.length || stayText || !sharedUrl) return;
     started.current = true;
     clearSharedPayloads();
     router.replace({ pathname: '/web', params: { url: sharedUrl } });
-  }, [files, sharedUrl, isResolving, clearSharedPayloads]);
+  }, [files, sharedUrl, stayText, isResolving, clearSharedPayloads]);
 
   useEffect(() => {
     if (isResolving || started.current || !files.length) return;

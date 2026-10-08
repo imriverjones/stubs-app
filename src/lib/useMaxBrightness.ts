@@ -4,10 +4,10 @@ import { useCallback } from 'react';
 import { AppState, Platform } from 'react-native';
 
 /** Full brightness while a code is on screen, back to where it was on leaving. */
-export function useMaxBrightness() {
+export function useMaxBrightness(enabled = true) {
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS === 'web') return;
+      if (Platform.OS === 'web' || !enabled) return;
       let previous: number | null = null;
       let active = true;
 
@@ -33,6 +33,6 @@ export function useMaxBrightness() {
         sub.remove();
         restore();
       };
-    }, []),
+    }, [enabled]),
   );
 }

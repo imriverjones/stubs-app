@@ -9,6 +9,7 @@ All your tickets in one place, on the right day. For the QR tickets that won't g
 - Optional: Stubs checks new screenshots for ticket codes when you open it and offers to add them.
 - On the day, a Live Activity pins the ticket (with its code) to the lock screen and Dynamic Island once Stubs has been opened that day; tapping the morning reminder counts.
 - A reminder at 8am on the day, or 2 hours before if there's a time. Tap it and the code is on screen at full brightness.
+- **Stays** (Airbnb, hotels, campsites): screenshot the check-in screens or paste the host's message (+ → Paste check-in details, or Share → Stash with text). Stash reads the address, check-in/out, door or key-box code, Wi-Fi and host's number into one card with Directions and Call. Stays stay on Today until check-out; the door code never goes on the lock screen.
 - Tidy by default: past tickets clear themselves after 30 days (or 1 week / 90 days / never). Swipe to delete, with undo.
 - Nothing leaves the phone. No account, no server.
 

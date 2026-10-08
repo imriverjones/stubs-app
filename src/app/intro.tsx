@@ -186,7 +186,7 @@ const SLIDES: Slide[] = [
   {
     kicker: 'Everything else',
     title: 'Screenshots and links too',
-    body: 'Tap + to add a screenshot, a PDF from Files or a ticket link. A few people on one booking? Each code becomes its own ticket.',
+    body: 'Tap + for a screenshot, a PDF or a ticket link. Staying in an Airbnb? Screenshot the check-in screens or paste the host’s message, and Stash keeps the address, door code and Wi-Fi together.',
     art: <ShareArt />,
   },
   {

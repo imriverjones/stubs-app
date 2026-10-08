@@ -3,6 +3,7 @@ import { addDays, dayKey, toDate } from './dates';
 import { File } from 'expo-file-system';
 import { dbFile, deleteStubFiles, newId, rebase, stubDir } from './files';
 import type { Extracted } from './extract';
+import type { StayFound } from './stay';
 import { cancelReminder, ensurePermission, reminderStatus, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
 
@@ -108,10 +109,12 @@ export function discardDraft() {
 
 // ---------- stubs ----------
 
-export async function saveDraft(fields: Pick<Stub, 'title' | 'kind' | 'date' | 'time'>) {
+export type EditableFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay'>;
+
+export async function saveDraft(fields: EditableFields) {
   const draft = state.draft;
   if (!draft) return null;
-  const stub: Stub = { ...draft, ...fields, title: fields.title.trim() || 'Ticket', createdAt: Date.now() };
+  const stub: Stub = { ...draft, ...fields, title: fields.title.trim() || (fields.kind === 'stay' ? 'Stay' : 'Ticket'), createdAt: Date.now() };
   stub.reminderId = await scheduleReminder(stub);
   // The first real ticket replaces the demo one.
   const samples = state.stubs.filter((s) => s.sample);
@@ -121,7 +124,7 @@ export async function saveDraft(fields: Pick<Stub, 'title' | 'kind' | 'date' | '
   return stub;
 }
 
-export async function updateStub(id: string, fields: Partial<Pick<Stub, 'title' | 'kind' | 'date' | 'time'>>) {
+export async function updateStub(id: string, fields: Partial<EditableFields>) {
   const current = state.stubs.find((s) => s.id === id);
   if (!current) return;
   await cancelReminder(current.reminderId);
@@ -170,7 +173,7 @@ export function clearPast() {
 }
 
 /** Apply details read off a saved ticket. Fills gaps only; never overwrites what the person set. */
-export async function applyReread(id: string, found: Extracted): Promise<number> {
+export async function applyReread(id: string, found: Extracted & { stayFound?: StayFound }): Promise<number> {
   const current = state.stubs.find((s) => s.id === id);
   if (!current) return 0;
   const tickets = current.tickets.map((t, i) =>
@@ -184,13 +187,21 @@ export async function applyReread(id: string, found: Extracted): Promise<number>
     time: current.time ?? found.time,
     title: found.title && /^(ticket|tickets|e-?tickets?|screenshot|image|photo)?$/i.test(current.title.trim()) ? found.title : current.title,
   };
+  if (found.stayFound) {
+    // Fill gaps only; anything the person typed stays.
+    const st = found.stayFound.stay;
+    const merged = { ...st, ...Object.fromEntries(Object.entries(current.stay ?? {}).filter(([, v]) => v)) };
+    next.stay = merged;
+    next.kind = 'stay';
+  }
   if (next.time !== current.time) {
     await cancelReminder(current.reminderId);
     next.reminderId = await scheduleReminder(next);
   }
   set({ stubs: state.stubs.map((s) => (s.id === id ? next : s)) });
   persist();
-  return found.shared.length + found.perTicket.reduce((n, d) => n + d.length, 0);
+  const stayCount = found.stayFound ? Object.keys(found.stayFound.stay).filter((k) => k !== 'notes').length : 0;
+  return found.shared.length + found.perTicket.reduce((n, d) => n + d.length, 0) + stayCount;
 }
 
 /** Mark as used (moves to Archive) or bring it back. Returns an undo. */
@@ -217,10 +228,10 @@ export function cleanUp() {
   const days = state.settings.keepPastDays;
   if (!days) return;
   const cutoff = addDays(dayKey(), -days);
-  const expired = state.stubs.filter((s) => s.date < cutoff);
+  const expired = state.stubs.filter((s) => lastDay(s) < cutoff);
   if (!expired.length) return;
   expired.forEach((s) => deleteStubFiles(s.id));
-  set({ stubs: state.stubs.filter((s) => s.date >= cutoff) });
+  set({ stubs: state.stubs.filter((s) => lastDay(s) >= cutoff) });
   persist();
 }
 
@@ -273,8 +284,21 @@ export function markShotsSeen(ids: string[]) {
 export const ARCHIVE_AFTER_MS = 3 * 60 * 60 * 1000;
 
 /** Used, or its day is over, or it started more than a few hours ago. */
+/** The last day a stub is needed: check-out for stays, otherwise its date. */
+export function lastDay(s: Stub): string {
+  const out = s.kind === 'stay' ? s.stay?.checkOutDate : undefined;
+  return out && out > s.date ? out : s.date;
+}
+
 export function isArchived(s: Stub, now = Date.now(), today = dayKey()): boolean {
   if (s.usedAt) return true;
+  if (s.kind === 'stay') {
+    // Stays stay put (Wi-Fi, door code) until check-out, not 3 hours after check-in.
+    const end = lastDay(s);
+    if (end < today) return true;
+    if (end === today && s.stay?.checkOutTime) return toDate(end, s.stay.checkOutTime).getTime() + 60 * 60 * 1000 < now;
+    return false;
+  }
   if (s.date < today) return true;
   if (s.date === today && s.time) return toDate(s.date, s.time).getTime() + ARCHIVE_AFTER_MS < now;
   return false;
@@ -283,7 +307,8 @@ export function isArchived(s: Stub, now = Date.now(), today = dayKey()): boolean
 export function groupStubs(stubs: Stub[], today = dayKey(), now = Date.now()) {
   const live = stubs.filter((s) => !isArchived(s, now, today));
   return {
-    today: live.filter((s) => s.date === today),
+    // Includes stays that started earlier and run to a later check-out.
+    today: live.filter((s) => s.date <= today),
     upcoming: live.filter((s) => s.date > today),
     /** Most recent first. */
     archive: stubs
