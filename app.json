@@ -97,7 +97,20 @@
         {
           "bundleIdentifier": "com.imriverjones.stubs.widgets",
           "groupIdentifier": "group.com.imriverjones.stubs",
-          "enablePushNotifications": false
+          "enablePushNotifications": false,
+          "widgets": [
+            {
+              "name": "NextTicket",
+              "displayName": "Next ticket",
+              "description": "Your next ticket and how long to go.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            }
+          ]
         }
       ],
       [

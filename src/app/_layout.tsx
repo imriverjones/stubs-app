@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastHost } from '../components/Toast';
 import { configureNotifications } from '../lib/reminders';
+import { syncHomeWidget } from '../lib/homeWidget';
 import { syncLockScreen } from '../lib/lockscreen';
 import { checkRecentScreenshots } from '../lib/screenshots';
 import { cleanUp, ensureReminders, load, useStore } from '../lib/store';
@@ -52,7 +53,10 @@ export default function RootLayout() {
 
   // Keep the lock screen card in step with today's tickets.
   useEffect(() => {
-    if (loaded) syncLockScreen();
+    if (loaded) {
+      syncLockScreen();
+      syncHomeWidget();
+    }
   }, [loaded, stubs, lockScreen]);
   // Never sit on the splash screen: if a font fails, carry on with system fonts.
   const ready = (fontsLoaded || !!fontError) && loaded;
@@ -68,6 +72,7 @@ export default function RootLayout() {
       ensureReminders();
       checkRecentScreenshots();
       syncLockScreen();
+      syncHomeWidget();
     });
     return () => sub.remove();
   }, []);
