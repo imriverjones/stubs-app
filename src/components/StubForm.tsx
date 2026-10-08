@@ -1,4 +1,5 @@
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Toggle } from './Toggle';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -6,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -167,10 +167,9 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
           <View style={styles.divider} />
           <View style={styles.boxRow}>
             <Text style={styles.boxLabel}>{isStay ? 'Check-in time' : 'Set a time'}</Text>
-            <Switch
+            <Toggle
               value={time != null}
               onValueChange={(on) => setTime(on ? time ?? '09:00' : undefined)}
-              trackColor={{ true: colors.accent, false: '#D6D6CF' }}
               accessibilityLabel="Set a time"
             />
           </View>
@@ -204,10 +203,9 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
             <View style={styles.box}>
               <View style={styles.boxRow}>
                 <Text style={styles.boxLabel}>Check-out</Text>
-                <Switch
+                <Toggle
                   value={stay.checkOutDate != null}
                   onValueChange={(on) => setStayField('checkOutDate', on ? stay.checkOutDate ?? date : undefined)}
-                  trackColor={{ true: colors.accent, false: '#D6D6CF' }}
                   accessibilityLabel="Set a check-out date"
                 />
               </View>

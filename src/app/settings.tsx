@@ -1,8 +1,9 @@
 import Constants from 'expo-constants';
+import { Toggle } from '../components/Toggle';
 import * as Updates from 'expo-updates';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
@@ -72,10 +73,9 @@ export default function Settings() {
             <Text style={styles.rowText}>Lock screen ticket</Text>
             <Text style={styles.note}>On the day, pin the ticket to your lock screen.</Text>
           </View>
-          <Switch
+          <Toggle
             value={lockScreen}
             onValueChange={(v) => setSettings({ lockScreen: v })}
-            trackColor={{ true: colors.accent, false: '#D6D6CF' }}
             accessibilityLabel="Lock screen ticket"
           />
         </View>
@@ -85,13 +85,12 @@ export default function Settings() {
               <Text style={styles.rowText}>Spot tickets in screenshots</Text>
               <Text style={styles.note}>Checked on this phone when you open Stash.</Text>
             </View>
-            <Switch
+            <Toggle
               value={shots === 'on'}
               onValueChange={(v) => {
                 if (v) enableScreenshotCheck();
                 else setSettings({ screenshots: 'off' });
               }}
-              trackColor={{ true: colors.accent, false: '#D6D6CF' }}
               accessibilityLabel="Spot tickets in screenshots"
             />
           </View>
