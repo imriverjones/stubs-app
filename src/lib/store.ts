@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { addDays, dayKey, toDate } from './dates';
-import { dbFile, deleteStubFiles, rebase } from './files';
+import { dbFile, deleteStubFiles, newId, rebase } from './files';
 import type { Extracted } from './extract';
 import { cancelReminder, ensurePermission, reminderStatus, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
@@ -111,7 +111,10 @@ export async function saveDraft(fields: Pick<Stub, 'title' | 'kind' | 'date' | '
   if (!draft) return null;
   const stub: Stub = { ...draft, ...fields, title: fields.title.trim() || 'Ticket', createdAt: Date.now() };
   stub.reminderId = await scheduleReminder(stub);
-  set({ draft: null, stubs: sortStubs([...state.stubs, stub]) });
+  // The first real ticket replaces the demo one.
+  const samples = state.stubs.filter((s) => s.sample);
+  for (const s of samples) await cancelReminder(s.reminderId);
+  set({ draft: null, stubs: sortStubs([...state.stubs.filter((s) => !s.sample), stub]) });
   persist();
   return stub;
 }
@@ -285,4 +288,48 @@ export function groupStubs(stubs: Stub[], today = dayKey(), now = Date.now()) {
       .filter((s) => isArchived(s, now, today))
       .sort((a, b) => (b.usedAt ?? 0) - (a.usedAt ?? 0) || b.date.localeCompare(a.date)),
   };
+}
+
+/**
+ * A demo ticket for today (two seats, so swiping shows too), so new people and App Review
+ * can see the code, details and lock screen card without importing anything.
+ */
+export function addSampleTicket(): Stub {
+  const existing = state.stubs.find((s) => s.sample);
+  if (existing) return existing;
+  // Starts a couple of hours from now so it stays in Today; late at night, tomorrow evening.
+  const start = new Date(Date.now() + 2 * 3600_000);
+  start.setMinutes(start.getMinutes() <= 30 ? 30 : 60, 0, 0);
+  const sameDay = dayKey(start) === dayKey();
+  const id = newId();
+  const ticket = (n: number, seat: string) => ({
+    id: `${id}-${n}`,
+    pageUri: '',
+    code: { symbology: 'qr', payload: `STASH-SAMPLE-${n}`, cropUri: '' },
+    details: [
+      { label: 'Row', value: 'J' },
+      { label: 'Seat', value: seat },
+    ],
+  });
+  const stub: Stub = {
+    id,
+    sample: true,
+    title: 'Sample show',
+    kind: 'event',
+    date: sameDay ? dayKey() : addDays(dayKey(), 1),
+    time: sameDay ? `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}` : '19:30',
+    tickets: [ticket(1, '12'), ticket(2, '13')],
+    details: [
+      { label: 'Section', value: 'Stalls' },
+      { label: 'Entrance', value: 'B' },
+      { label: 'Ref', value: 'SAMPLE1' },
+    ],
+    sourceUri: '',
+    sourceName: 'Sample',
+    pageUris: [],
+    createdAt: Date.now(),
+  };
+  set({ stubs: sortStubs([...state.stubs, stub]) });
+  persist();
+  return stub;
 }

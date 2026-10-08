@@ -56,6 +56,8 @@ export type Stub = {
   createdAt: number;
   /** Set when the person marks the ticket as used; it moves to Archive. */
   usedAt?: number;
+  /** A demo ticket from the empty screen: no files, removed when a real ticket is saved. */
+  sample?: boolean;
   /** Which fields were read off the ticket (shown as a hint on the confirm screen). */
   autofill?: ('date' | 'time' | 'title' | 'kind')[];
 };

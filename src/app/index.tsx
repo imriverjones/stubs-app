@@ -11,7 +11,7 @@ import { RoundButton } from '../components/RoundButton';
 import { showToast } from '../components/Toast';
 import { dayKey, fmt, relativeDay } from '../lib/dates';
 import { summary } from '../lib/lockscreen';
-import { clearPast, groupStubs, removeStub, useStore } from '../lib/store';
+import { addSampleTicket, clearPast, groupStubs, removeStub, useStore } from '../lib/store';
 import { KINDS, type Stub } from '../lib/types';
 import { useAddTicket } from '../lib/useAddTicket';
 import { colors, fonts, label } from '../theme';
@@ -83,7 +83,15 @@ export default function Home() {
         <ScreenshotCards />
         <NotifyPrompt />
 
-        {empty && <EmptyState onAdd={add.open} />}
+        {empty && (
+          <EmptyState
+            onAdd={add.open}
+            onSample={() => {
+              const s = addSampleTicket();
+              router.push({ pathname: '/ticket/[id]', params: { id: s.id } });
+            }}
+          />
+        )}
 
         {next.length > 0 && (
           <View style={styles.section}>
@@ -274,7 +282,7 @@ function SwipeToDelete({ stub, children }: { stub: Stub; children: React.ReactNo
   );
 }
 
-function EmptyState({ onAdd }: { onAdd: () => void }) {
+function EmptyState({ onAdd, onSample }: { onAdd: () => void; onSample: () => void }) {
   return (
     <Perforated
       color={colors.paper}
@@ -299,6 +307,14 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
           >
             <Icon name="plus" size={18} color={colors.ink} />
             <Text style={styles.primaryText}>Add your first ticket</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint="Adds a demo ticket you can delete any time"
+            onPress={onSample}
+            style={({ pressed }) => [styles.sampleButton, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.sampleText}>Try a sample ticket</Text>
           </Pressable>
         </View>
       }
@@ -365,7 +381,9 @@ const styles = StyleSheet.create({
   emptyTop: { padding: 22, gap: 10 },
   emptyTitle: { fontFamily: fonts.display, fontSize: 44, textTransform: 'uppercase', color: colors.ink },
   emptyBody: { fontFamily: fonts.body, fontSize: 16, lineHeight: 23, color: colors.inkSoft },
-  emptyBottom: { padding: 20 },
+  emptyBottom: { padding: 20, gap: 6 },
+  sampleButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  sampleText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink, textDecorationLine: 'underline' },
   primary: {
     height: 54,
     borderRadius: 999,

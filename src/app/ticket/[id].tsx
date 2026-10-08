@@ -54,15 +54,16 @@ export default function TicketScreen() {
   const codeSize = Math.min(cardWidth - 80, 300);
 
   const more = () => {
+    const sample = !!stub.sample;
     const items: { label: string; run: () => void; destructive?: boolean }[] = [
-      {
+      ...(sample ? [] : [{
         label: count > 1 ? `Send ticket ${page + 1}` : 'Send ticket',
         run: () => sendTicket(stub, page).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
-      },
-      ...(canSendAll(stub)
+      }]),
+      ...(!sample && canSendAll(stub)
         ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
         : []),
-      { label: 'Re-read ticket details', run: reread },
+      ...(sample ? [] : [{ label: 'Re-read ticket details', run: reread }]),
       { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
       {
         label: 'Delete',
@@ -168,13 +169,27 @@ export default function TicketScreen() {
         >
           <Text style={styles.solidText}>{stub.usedAt ? 'Not used yet' : 'Used'}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
-          style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
-        >
-          <Text style={styles.outlineText}>View original</Text>
-        </Pressable>
+        {stub.sample ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              router.back();
+              removeStub(stub.id);
+              showToast('Sample removed. Share a real ticket to Stash to add it.');
+            }}
+            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.outlineText}>Remove sample</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
+            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.outlineText}>View original</Text>
+          </Pressable>
+        )}
       </View>
     </ScrollView>
   );
