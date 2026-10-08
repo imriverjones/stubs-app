@@ -1,6 +1,6 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -24,7 +24,7 @@ import { fmt, relativeDay } from '../../lib/dates';
 import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
 import { pickCoverPhoto } from '../../lib/pickers';
-import { applyReread, removeStub, setCover, setUsed, useStore } from '../../lib/store';
+import { applyReread, groupStubs, isArchived, removeStub, setCover, setUsed, useStore } from '../../lib/store';
 import { KINDS, type Stub } from '../../lib/types';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
 import { colors, fonts } from '../../theme';
@@ -33,10 +33,29 @@ const H_PAD = 20;
 
 export default function TicketScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const stub = useStore((s) => s.stubs.find((x) => x.id === id));
+  const all = useStore((s) => s.stubs);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const [page, setPage] = useState(0);
+  const pager = useRef<ScrollView>(null);
+
+  // Swipe on to the next ticket in the same list (Tickets or Stays), in date order.
+  // Something opened from Archive stays on its own.
+  const { pages, start } = useMemo(() => {
+    const opened = all.find((x) => x.id === id);
+    if (!opened) return { pages: [] as { stub: Stub; index: number }[], start: 0 };
+    const isStay = opened.kind === 'stay';
+    const g = groupStubs(all);
+    const list = isArchived(opened) ? [opened] : [...g.today, ...g.upcoming].filter((s) => (s.kind === 'stay') === isStay);
+    if (!list.some((s) => s.id === opened.id)) list.unshift(opened);
+    const flat = list.flatMap((s) => (s.kind === 'stay' || !s.tickets.length ? [{ stub: s, index: 0 }] : s.tickets.map((_, index) => ({ stub: s, index }))));
+    return { pages: flat, start: Math.max(0, flat.findIndex((p) => p.stub.id === opened.id)) };
+  }, [all, id]);
+  const [current, setCurrent] = useState<number | null>(null);
+  const at = Math.min(current ?? start, Math.max(0, pages.length - 1));
+  const stub = pages[at]?.stub;
+  const page = pages[at]?.index ?? 0;
+  const stubIds = useMemo(() => [...new Set(pages.map((p) => p.stub.id))], [pages]);
+  const positioned = useRef(false);
   useKeepAwake();
   useMaxBrightness(stub?.kind !== 'stay');
 
@@ -171,7 +190,13 @@ export default function TicketScreen() {
         <RoundButton label="Back" onPress={() => router.back()} size={44}>
           <Icon name="back" color={colors.paper} />
         </RoundButton>
-        {count > 1 && stub.kind !== 'stay' ? (
+        {stubIds.length > 1 ? (
+          <View style={styles.counter} accessibilityLabel={`${stubIds.indexOf(stub.id) + 1} of ${stubIds.length}. Swipe for the next.`}>
+            <Text style={styles.counterText}>
+              {stubIds.indexOf(stub.id) + 1} / {stubIds.length}
+            </Text>
+          </View>
+        ) : count > 1 && stub.kind !== 'stay' ? (
           <View style={styles.counter}>
             <Text style={styles.counterText}>
               {page + 1} / {count}
@@ -185,37 +210,52 @@ export default function TicketScreen() {
         </RoundButton>
       </View>
 
-      {stub.kind === 'stay' ? (
-        <View style={{ paddingHorizontal: H_PAD }}>
-          <StayCard stub={stub} />
-        </View>
-      ) : (
-        <>
       <ScrollView
+        ref={pager}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         style={{ flexGrow: 0 }}
-        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
+        contentOffset={{ x: width * start, y: 0 }}
+        onLayout={() => {
+          // Open on the ticket that was tapped (contentOffset covers iOS; this covers Android).
+          if (positioned.current) return;
+          positioned.current = true;
+          pager.current?.scrollTo({ x: width * start, animated: false });
+        }}
+        onMomentumScrollEnd={(e) => setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))}
       >
-        {stub.tickets.map((item, index) => (
-          <View key={item.id} style={{ width, paddingHorizontal: H_PAD }}>
-            <TicketCard stub={stub} index={index} codeSize={codeSize}>
-              <CodeView ticket={item} size={codeSize} />
-            </TicketCard>
+        {pages.map((p) => (
+          <View key={`${p.stub.id}-${p.index}`} style={{ width, paddingHorizontal: H_PAD }}>
+            {p.stub.kind === 'stay' ? (
+              <StayCard stub={p.stub} />
+            ) : (
+              <TicketCard stub={p.stub} index={p.index} codeSize={codeSize}>
+                {p.stub.tickets[p.index] ? <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} /> : null}
+              </TicketCard>
+            )}
           </View>
         ))}
       </ScrollView>
 
-      {count > 1 && (
-        <View style={styles.dots} accessibilityLabel={`Ticket ${page + 1} of ${count}. Swipe for the next one.`}>
-          {stub.tickets.map((t, i) => (
-            <View key={t.id} style={[styles.dot, i === page && styles.dotOn]} />
+      {pages.length > 1 && pages.length <= 14 && (
+        <View style={styles.dots} accessibilityLabel={`Page ${at + 1} of ${pages.length}. Swipe for the next one.`}>
+          {pages.map((p, i) => (
+            <View
+              key={`${p.stub.id}-${p.index}`}
+              style={[styles.dot, i === at && styles.dotOn, i > 0 && pages[i - 1].stub.id !== p.stub.id && { marginLeft: 8 }]}
+            />
           ))}
         </View>
       )}
-
-        </>
+      {pages.length > 1 && (
+        <Text style={styles.swipeHint}>
+          {at < pages.length - 1
+            ? pages[at + 1].stub.id === stub.id
+              ? 'Swipe for the next ticket'
+              : `Next: ${pages[at + 1].stub.title}`
+            : 'Swipe back for earlier ones'}
+        </Text>
       )}
 
       <View style={{ flex: 1, minHeight: 8 }} />
@@ -331,6 +371,7 @@ const styles = StyleSheet.create({
   bright: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brightText: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  swipeHint: { fontFamily: fonts.mono, fontSize: 11, color: 'rgba(17,17,17,0.6)', textAlign: 'center', marginTop: -6, paddingHorizontal: H_PAD },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(17,17,17,0.35)' },
   dotOn: { width: 22, backgroundColor: colors.ink },
   outline: {
