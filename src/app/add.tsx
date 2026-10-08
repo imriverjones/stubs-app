@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { StubForm } from '../components/StubForm';
 import { showToast } from '../components/Toast';
+import { autoCover } from '../lib/covers';
 import { discardDraft, isArchived, saveDraft, useStore } from '../lib/store';
 
 function leave() {
@@ -38,6 +39,7 @@ export default function Add() {
         const saved = await saveDraft(fields);
         leave();
         if (saved) {
+          autoCover(saved);
           // Land on the tab it lives in.
           router.navigate(saved.kind === 'stay' ? '/stays' : '/');
           showToast(

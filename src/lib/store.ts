@@ -364,7 +364,7 @@ export function addSampleTicket(): Stub {
 }
 
 /** Set (copying the photo into the ticket's folder) or clear a ticket's cover photo. */
-export async function setCover(id: string, photoUri: string | null) {
+export async function setCover(id: string, photoUri: string | null, opts: { credit?: string } = {}) {
   const current = state.stubs.find((s) => s.id === id);
   if (!current) return;
   let cover: string | undefined;
@@ -382,6 +382,6 @@ export async function setCover(id: string, photoUri: string | null) {
     } catch {}
   }
   const latest = state.stubs.find((s) => s.id === id) ?? current;
-  set({ stubs: state.stubs.map((s) => (s.id === id ? { ...latest, cover } : s)) });
+  set({ stubs: state.stubs.map((s) => (s.id === id ? { ...latest, cover, coverCredit: cover ? opts.credit : undefined, coverTried: true } : s)) });
   persist();
 }
