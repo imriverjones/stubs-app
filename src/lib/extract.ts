@@ -39,6 +39,9 @@ const LABELS: LabelDef[] = [
   { label: 'Deck', wordValues: true, words: ['deck', 'class'] },
   { label: 'Doors', words: ['doors', 'doors open', 'gates open', 'einlass', 'check-in closes'], value: TIME_VALUE },
   { label: 'Boarding', words: ['boarding', 'boarding time', 'boards', 'boarding starts'], value: TIME_VALUE },
+  { label: 'Gate closes', words: ['gate closes', 'gate close', 'gate closing', 'gate closure'], value: TIME_VALUE },
+  { label: 'Departs', words: ['departs', 'departure', 'departure time', 'dep time', 'std', 'abfahrt', 'partenza', 'salida'], value: TIME_VALUE },
+  { label: 'Steps', wordValues: true, words: ['steps', 'boarding steps', 'board via', 'boarding door'] },
   { label: 'Terminal', wordValues: true, words: ['terminal', 'term'] },
   { label: 'Group', words: ['boarding group', 'group', 'zone', 'boarding zone', 'priority'], perTicket: true },
   { label: 'Flight', words: ['flight', 'flight no', 'flight number', 'flug', 'volo', 'vuelo', 'vol'], value: /^[A-Z0-9]{2,3}\s?\d{1,4}[A-Z]?$/i },
@@ -80,7 +83,7 @@ const STOP = new Set(
 );
 
 function cleanValue(def: LabelDef, raw: string): string | null {
-  let v = raw.trim().replace(/^[:#.\-–\s]+/, '').split(/\s{2,}|\t/)[0].trim();
+  let v = raw.trim().replace(/^[:#.\-–\s(]+/, '').replace(/\)\s*$/, '').split(/\s{2,}|\t/)[0].trim();
   if (def.value === TIME_VALUE) {
     const t = parseTime(v);
     return t ?? null;
@@ -118,12 +121,16 @@ function findDetails(text: string): Detail[] {
     const labels = cells.map(labelAt);
 
     // Header row of labels with a row of values below: "SECTION  ROW  SEAT" / "112  F  14"
-    if (labels.length > 1 && labels.every((l) => l && !l.rest) && i + 1 < lines.length) {
+    const isHeading = (c: string, l: ReturnType<typeof labelAt>) =>
+      (l && !l.rest) || /^[A-Z][A-Z /&.-]{1,20}:?$/.test(c);
+    const labelCount = labels.filter((l) => l && !l.rest).length;
+    if (labels.length > 1 && labelCount >= 2 && cells.every((c, k) => isHeading(c, labels[k])) && i + 1 < lines.length) {
       const values = lines[i + 1].split(/\t|\s{2,}|\s\|\s/).map((c) => c.trim()).filter(Boolean);
       if (values.length === labels.length) {
         labels.forEach((l, k) => {
-          const v = cleanValue(l!.def, values[k]);
-          if (v) out.push({ label: l!.def.label, value: v });
+          if (!l || l.rest) return;
+          const v = cleanValue(l.def, values[k]);
+          if (v) out.push({ label: l.def.label, value: v });
         });
         i++;
         continue;
@@ -300,7 +307,8 @@ function findRoute(lines: string[]): string | undefined {
     if (f && !from) from = place(f[2]) ?? place(lines[i + 1] ?? '');
     if (t && !to) to = place(t[2]) ?? place(lines[i + 1] ?? '');
     const arrow = l.match(/^([\p{L} .'-]{3,30}?)\s*(?:→|->|>)\s*([\p{L} .'-]{3,30})$/u) ?? l.match(/^([\p{L} .'-]{3,30}?)\s+(?:–|—|-|to)\s+([\p{L} .'-]{3,30})$/u);
-    if (arrow && !from && !to && /[A-Z]/.test(arrow[1][0])) {
+    const UI = /^(add|share|save|view|go|back|open|apple|wallet|download|print|email|send|next|previous|close)\b/i;
+    if (arrow && !from && !to && /[A-Z]/.test(arrow[1][0]) && !UI.test(arrow[1].trim()) && !UI.test(arrow[2].trim())) {
       from = place(arrow[1]);
       to = place(arrow[2]);
     }
@@ -341,7 +349,8 @@ export function parseBoardingPass(payload: string | undefined, today = new Date(
     date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
   const rawName = payload.slice(2, 22).trim();
-  const [last, first] = rawName.split('/');
+  const [last, firstRaw] = rawName.split('/');
+  const first = firstRaw?.replace(/\s*(MRS|MR|MS|MISS|MSTR|DR|PROF|SIR|REV)$/i, '').trim();
   const nice = (w?: string) => (w ? w.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase()) : '');
   return {
     name: [nice(first), nice(last)].filter(Boolean).join(' '),
@@ -352,6 +361,32 @@ export function parseBoardingPass(payload: string | undefined, today = new Date(
     date,
     seat: seat && seat !== '0' && !/^[A-Z]*$/.test(seat) ? seat : undefined,
   };
+}
+
+/** Find the printed form of a barcode name, e.g. "JONESGARDNER/RIVER" → "River Jones-Gardner". */
+export function printedName(barcodeName: string, text: string): string | undefined {
+  const key = (x: string) => x.toLowerCase().replace(/[^\p{L}]/gu, '');
+  const parts = barcodeName.split(' ').filter(Boolean);
+  if (parts.length < 2) return undefined;
+  const want = new Set([key(parts.join('')), key([...parts.slice(1), parts[0]].join(''))]);
+  const TITLE = /^(mr|mrs|ms|miss|mstr|dr|prof|sir|rev)\.?$/i;
+  for (const line of text.split(/\r?\n/)) {
+    for (const cell of line.split(/\t|\s{2,}|\s\/\s/)) {
+      const words = cell.trim().split(/\s+/).filter((w) => !TITLE.test(w) && /\p{L}/u.test(w));
+      for (let a = 0; a < words.length; a++) {
+        for (let b = a + 2; b <= Math.min(words.length, a + 5); b++) {
+          const candidate = words.slice(a, b);
+          if (want.has(key(candidate.join('')))) {
+            return candidate
+              .join(' ')
+              .toLowerCase()
+              .replace(/(^|[\s'\-])\p{L}/gu, (c) => c.toUpperCase());
+          }
+        }
+      }
+    }
+  }
+  return undefined;
 }
 
 // ---------- main ----------
@@ -406,7 +441,7 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
         first.pass = first.pass ?? bp;
         list.push({ label: 'Flight', value: bp.flight });
         if (bp.seat) list.push({ label: 'Seat', value: bp.seat });
-        if (bp.name) list.push({ label: 'Passenger', value: bp.name });
+        if (bp.name) list.push({ label: 'Passenger', value: printedName(bp.name, p.text) ?? bp.name });
       }
       byLabel.forEach((values, label) => {
         if (list.some((d) => d.label === label)) return; // the barcode already said
@@ -425,7 +460,9 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
 
   // No start time printed: use doors so the reminder still lands sensibly (boarding stays a detail).
   const doors = shared.find((d) => d.label === 'Doors') ?? (time ? undefined : shared.find((d) => d.label === 'Boarding'));
-  const startTime = time ?? doors?.value;
+  const departs = shared.find((d) => d.label === 'Departs');
+  if (departs) shared.splice(shared.indexOf(departs), 1);
+  const startTime = departs?.value ?? time ?? doors?.value;
   if (doors && doors.value === startTime) shared.splice(shared.indexOf(doors), 1);
 
   const bp = pass;

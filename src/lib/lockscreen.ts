@@ -43,7 +43,7 @@ function pick(stubs: Stub[]): Stub | null {
   return candidates[0] ?? null;
 }
 
-const LOCK_LABELS = ['Seat', 'Row', 'Section', 'Block', 'Gate', 'Entrance', 'Door', 'Platform', 'Coach', 'Deck', 'Cabin'];
+const LOCK_LABELS = ['Seat', 'Group', 'Row', 'Section', 'Block', 'Gate', 'Gate closes', 'Entrance', 'Door', 'Platform', 'Coach', 'Deck', 'Cabin'];
 
 export function summary(details: Detail[] | undefined, max = 2): string {
   if (!details?.length) return '';
