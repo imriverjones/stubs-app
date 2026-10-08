@@ -466,6 +466,40 @@ export function findEventTitle(lines: string[], today = new Date()): string | un
   return best && best.score > 0 ? best.title : undefined;
 }
 
+// ---------- company (airline, ferry line, ticket seller) ----------
+
+const COMPANIES = [
+  // airlines
+  'Jet2', 'easyJet', 'Ryanair', 'British Airways', 'Wizz Air', 'TUI', 'Aegean', 'Sky Express', 'Olympic Air', 'Lufthansa', 'KLM',
+  'Air France', 'Vueling', 'Iberia', 'Aer Lingus', 'Emirates', 'Qatar Airways', 'Virgin Atlantic', 'Norwegian', 'SAS', 'Swiss',
+  'Austrian Airlines', 'ITA Airways', 'Air New Zealand', 'Loganair', 'Eurowings', 'Transavia', 'Volotea', 'Turkish Airlines',
+  // ferries
+  'Ionian Lines', 'Kefalonian Lines', 'Levante Ferries', 'Minoan Lines', 'ANEK', 'Blue Star Ferries', 'Seajets', 'Hellenic Seaways',
+  'Superfast Ferries', 'Golden Star Ferries', 'Ferryhopper', 'Brittany Ferries', 'P&O Ferries', 'Stena Line', 'DFDS', 'Irish Ferries',
+  'Red Funnel', 'Wightlink', 'CalMac', 'Condor Ferries', 'Grimaldi', 'Moby', 'Tirrenia', 'Corsica Ferries', 'Baleària',
+  // trains and coaches
+  'Eurostar', 'Trainline', 'LNER', 'GWR', 'Avanti West Coast', 'CrossCountry', 'ScotRail', 'Southern', 'Thameslink', 'Northern',
+  'TransPennine Express', 'Southeastern', 'South Western Railway', 'Chiltern Railways', 'Trenitalia', 'Italo', 'SNCF', 'Deutsche Bahn',
+  'ÖBB', 'Renfe', 'Hellenic Train', 'FlixBus', 'National Express', 'Megabus', 'KTEL', 'Omio',
+  // tickets and venues
+  'Ticketmaster', 'AXS', 'See Tickets', 'Eventim', 'DICE', 'Eventbrite', 'Skiddle', 'Fatsoma', 'ATG Tickets', 'Delfont Mackintosh',
+  'Nimax', 'LW Theatres', 'LOVEtheatre', 'TodayTix', 'Live Nation', 'Gigantic', 'Twickets', 'Universe', 'Tixr', 'GetYourGuide',
+  'Viator', 'Klook', 'Tiqets', 'Fever', 'Booking.com', 'Airbnb', 'Expedia', 'Hotels.com',
+];
+// Spaces in names match any gap, so logos split over lines ("DELFONT\nMACKINTOSH") still count.
+const COMPANY_RE = new RegExp(
+  `(?<![\\p{L}\\d])(${COMPANIES.map((c) => escapeRe(c).replace(/ /g, '\\s+')).sort((a, b) => b.length - a.length).join('|')})(?![\\p{L}])`,
+  'iu',
+);
+
+/** The airline, ferry line or ticket seller named on the ticket, if it's one we know. */
+export function findCompany(text: string): string | undefined {
+  const m = text.match(COMPANY_RE);
+  if (!m) return undefined;
+  const found = m[1].replace(/\s+/g, ' ').toLowerCase();
+  return COMPANIES.find((c) => c.toLowerCase() === found) ?? m[1];
+}
+
 // ---------- boarding passes (IATA BCBP, the standard in airline barcodes) ----------
 
 export type BoardingPass = {
@@ -612,6 +646,9 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
   if (departs) shared.splice(shared.indexOf(departs), 1);
   const startTime = departs?.value ?? time ?? doors?.value;
   if (doors && doors.value === startTime) shared.splice(shared.indexOf(doors), 1);
+
+  const company = findCompany(allText);
+  if (company && !shared.some((d) => d.label === 'Company')) shared.unshift({ label: 'Company', value: company });
 
   const bp = pass;
   const kind: Kind | undefined = bp ? 'flight' : guessKind(allText);

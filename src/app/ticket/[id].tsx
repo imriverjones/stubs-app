@@ -212,41 +212,53 @@ export default function TicketScreen() {
               <StayCard stub={p.stub} />
             ) : (
               <TicketCard stub={p.stub} index={p.index} codeSize={codeSize} tear={i === at ? tear : undefined}>
-                {p.stub.tickets[p.index] ? <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} /> : null}
+                {p.stub.tickets[p.index] ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Ticket code"
+                    accessibilityHint="Opens the original ticket"
+                    onPress={() => !p.stub.sample && router.push({ pathname: '/original/[id]', params: { id: p.stub.id, page: p.stub.tickets[p.index].pageUri } })}
+                    style={({ pressed }) => pressed && { opacity: 0.85 }}
+                  >
+                    <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} />
+                  </Pressable>
+                ) : null}
               </TicketCard>
             )}
           </View>
         ))}
       </ScrollView>
 
-      {pages.length > 1 && pages.length <= 14 && (
-        <View style={styles.dots} accessibilityLabel={`Page ${at + 1} of ${pages.length}. Swipe for the next one.`}>
-          {pages.map((p, i) => (
-            <View
-              key={`${p.stub.id}-${p.index}`}
-              style={[styles.dot, i === at && styles.dotOn, i > 0 && pages[i - 1].stub.id !== p.stub.id && { marginLeft: 8 }]}
-            />
-          ))}
-        </View>
-      )}
-      {pages.length > 1 && (
-        <Text style={styles.swipeHint}>
-          {at < pages.length - 1
-            ? pages[at + 1].stub.id === stub.id
-              ? 'Swipe for the next ticket'
-              : `Next: ${pages[at + 1].stub.title}`
-            : 'Swipe back for earlier ones'}
-        </Text>
-      )}
+      <View style={styles.below}>
+        {pages.length > 1 && pages.length <= 14 && (
+          <View style={styles.dots} accessibilityLabel={`Page ${at + 1} of ${pages.length}. Swipe for the next one.`}>
+            {pages.map((p, i) => (
+              <View
+                key={`${p.stub.id}-${p.index}`}
+                style={[styles.dot, i === at && styles.dotOn, i > 0 && pages[i - 1].stub.id !== p.stub.id && { marginLeft: 8 }]}
+              />
+            ))}
+          </View>
+        )}
+        {pages.length > 1 && (
+          <Text style={styles.swipeHint} numberOfLines={1}>
+            {at < pages.length - 1
+              ? pages[at + 1].stub.id === stub.id
+                ? 'Swipe for the next ticket'
+                : `Next: ${pages[at + 1].stub.title}`
+              : 'Swipe back for earlier ones'}
+          </Text>
+        )}
+      </View>
 
-      <View style={{ flex: 1, minHeight: 8 }} />
+      <View style={{ flex: 1, minHeight: 12 }} />
 
       <View style={styles.bottomRow}>
         <Pressable
           accessibilityRole="button"
           accessibilityHint={stub.usedAt ? 'Moves it back to your upcoming tickets' : 'Moves it to Archive'}
           onPress={toggleUsed}
-          style={({ pressed }) => [styles.solid, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [styles.solid, styles.grow, pressed && { opacity: 0.8 }]}
         >
           <Text style={styles.solidText}>
             {stub.kind === 'stay' ? (stub.usedAt ? 'Not checked out' : 'Checked out') : stub.usedAt ? 'Not used yet' : 'Used'}
@@ -264,15 +276,15 @@ export default function TicketScreen() {
           >
             <Text style={styles.outlineText}>Remove sample</Text>
           </Pressable>
-        ) : stub.kind === 'stay' && !stub.tickets.some((t) => t.pageUri) ? null : (
+        ) : stub.kind === 'stay' && stub.tickets.some((t) => t.pageUri) ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
             style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
           >
-            <Text style={styles.outlineText}>{stub.kind === 'stay' ? 'Screenshots' : 'View original'}</Text>
+            <Text style={styles.outlineText}>Screenshots</Text>
           </Pressable>
-        )}
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -300,6 +312,7 @@ function TicketCard({
   tear?: Animated.Value;
 }) {
   const holoAll = useStore((s) => s.settings.holoAll);
+  const company = stub.details?.find((d) => d.label === 'Company')?.value;
   const kind = KINDS.find((k) => k.id === stub.kind)?.label ?? 'Ticket';
   const count = stub.tickets.length;
   return (
@@ -315,13 +328,14 @@ function TicketCard({
           {(stub.holo || holoAll) && <Holo intensity={0.32} />}
           <Text style={styles.cardLabel}>
             {kind}
+            {company ? ` · ${company}` : ''}
             {count > 1 ? ` · ${index + 1} of ${count}` : ''}
           </Text>
           <Text style={[styles.cardTitle, titleSize(stub.title)]}>{stub.title}</Text>
           <View style={styles.grid}>
             <Field label="Date" value={`${relativeDay(stub.date) === 'Today' ? 'Today · ' : ''}${fmt.short(stub.date)}`} />
             {stub.time ? <Field label="Time" value={stub.time} /> : null}
-            {[...(stub.tickets[index]?.details ?? []), ...(stub.details ?? [])].map((d, i) => (
+            {[...(stub.tickets[index]?.details ?? []), ...(stub.details ?? [])].filter((d) => d.label !== 'Company').map((d, i) => (
               <Field key={`${d.label}-${i}`} label={d.label === 'Ref' ? 'Booking ref' : d.label} value={d.value} mono={d.label === 'Ref'} />
             ))}
           </View>
@@ -332,7 +346,7 @@ function TicketCard({
           {children}
           <View style={styles.bright}>
             <Icon name="sun" size={14} color={colors.inkSoft} stroke={2.2} />
-            <Text style={styles.brightText}>Brightness boosted</Text>
+            <Text style={styles.brightText}>Brightness boosted · tap the code for the original</Text>
           </View>
         </View>
       }
@@ -366,7 +380,8 @@ const styles = StyleSheet.create({
   bright: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brightText: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  swipeHint: { fontFamily: fonts.mono, fontSize: 11, color: 'rgba(17,17,17,0.6)', textAlign: 'center', marginTop: -6, paddingHorizontal: H_PAD },
+  below: { gap: 8, alignItems: 'center', paddingHorizontal: H_PAD },
+  swipeHint: { fontFamily: fonts.mono, fontSize: 11, color: 'rgba(17,17,17,0.65)', textAlign: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(17,17,17,0.35)' },
   dotOn: { width: 22, backgroundColor: colors.ink },
   outline: {

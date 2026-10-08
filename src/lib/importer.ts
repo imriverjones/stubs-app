@@ -85,8 +85,9 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
         for (const code of codes) {
           tickets.push({ id: newId(), pageUri: page.imageUri, code });
         }
-      } else if (!anyCodes) {
-        // No code anywhere in this file: keep the pages themselves as the ticket.
+      } else if (!anyCodes && page === pages[0]) {
+        // No code anywhere in this file (e.g. a booking confirmation): the whole file is one
+        // ticket, shown from its first page; every page is still there in the original.
         tickets.push({ id: newId(), pageUri: page.imageUri });
       }
       pageTexts.push({
@@ -128,11 +129,12 @@ async function buildDraft(id: string, files: IncomingFile[], options: ImportOpti
   if (found.date) autofill.push('date');
   if (found.time) autofill.push('time');
   if (found.kind) autofill.push('kind');
-  if (found.title && !fileTitle) autofill.push('title');
+  if (found.title) autofill.push('title');
 
   const draft: Stub = {
     id,
-    title: fileTitle || found.title || '',
+    // What the ticket says beats the file name ("E-ticket_48812.pdf").
+    title: found.title || fileTitle || '',
     kind: found.kind ?? 'event',
     date: found.date ?? dayKey(),
     time: found.time,
