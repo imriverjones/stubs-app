@@ -7,6 +7,8 @@ import { AppState, Linking, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../components/Icon';
 import { RoundButton } from '../components/RoundButton';
+import { Swatches } from '../components/Swatches';
+import { showToast } from '../components/Toast';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
 import { reminderStatus, type ReminderStatus } from '../lib/reminders';
 import { askPersistentBanners } from '../lib/persistent';
@@ -32,6 +34,7 @@ export default function Settings() {
     }, []),
   );
   const lockScreen = useStore((s) => s.settings.lockScreen);
+  const accent = useStore((s) => s.settings.accent);
   const shots = useStore((s) => s.settings.screenshots);
   const insets = useSafeAreaInsets();
 
@@ -65,6 +68,20 @@ export default function Settings() {
         <Text style={styles.note}>
           {keep ? `Tickets delete themselves ${keep} days after the event.` : 'Old tickets stay until you clear them.'}
         </Text>
+      </View>
+
+      <View style={styles.block}>
+        <Text style={label}>App colour</Text>
+        <Swatches
+          value={accent}
+          onChange={(id) => {
+            if (id === (accent ?? 'orange')) return;
+            setSettings({ accent: id });
+            // Colours are set as the app starts, so restart it to repaint everything.
+            Updates.reloadAsync().catch(() => showToast('Close and reopen Stash to see the new colour.'));
+          }}
+        />
+        <Text style={styles.note}>Buttons and ticket screens. Stash restarts to apply it. Each ticket can have its own colour too: ⋯ → Edit details.</Text>
       </View>
 
       <View style={styles.block}>

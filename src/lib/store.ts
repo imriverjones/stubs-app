@@ -130,7 +130,7 @@ export function discardDraft() {
 
 // ---------- stubs ----------
 
-export type EditableFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay'>;
+export type EditableFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay' | 'color'>;
 
 export async function saveDraft(fields: EditableFields) {
   const draft = state.draft;

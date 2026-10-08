@@ -6,6 +6,7 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
 import { Logo } from './Logo';
+import { ticketAccent, ticketDeep } from '../lib/palette';
 import { NotifyPrompt } from './NotifyPrompt';
 import { Perforated } from './Perforated';
 import { ScreenshotCards } from './ScreenshotCards';
@@ -266,7 +267,7 @@ function NextCard({ stub }: { stub: Stub }) {
       style={({ pressed }) => pressed && { transform: [{ scale: 0.985 }] }}
     >
       <Perforated
-        color={colors.night}
+        color={ticketDeep(stub.color, colors.night)}
         ground={colors.ground}
         rule={colors.nightRule}
         top={
@@ -278,7 +279,7 @@ function NextCard({ stub }: { stub: Stub }) {
               </>
             )}
             <View style={styles.rowBetween}>
-              <View style={styles.tag}>
+              <View style={[styles.tag, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}>
                 <Text style={styles.tagText}>{kindLabel(stub)}</Text>
               </View>
               <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
@@ -290,7 +291,7 @@ function NextCard({ stub }: { stub: Stub }) {
         bottom={
           <View style={[styles.rowBetween, styles.todayBottom]}>
             <Text style={styles.todayMeta}>{stub.kind === 'stay' ? 'Address, door code, Wi-Fi' : 'Tap to show code'}</Text>
-            <View style={styles.pill}>
+            <View style={[styles.pill, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}>
               <Text style={styles.pillText}>{stub.kind === 'stay' ? 'Open' : 'Show code'}</Text>
               <Icon name="arrow" size={16} color={colors.ink} />
             </View>

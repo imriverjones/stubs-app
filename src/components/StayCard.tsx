@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, Linking, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { dayKey, fmt, relativeDay } from '../lib/dates';
+import { ticketAccent } from '../lib/palette';
 import type { Stub } from '../lib/types';
 import { colors, fonts } from '../theme';
 import { Perforated } from './Perforated';
@@ -67,7 +68,7 @@ export function StayCard({ stub }: { stub: Stub }) {
   return (
     <Perforated
       color={colors.paperWarm}
-      ground={colors.accent}
+      ground={ticketAccent(stub.color, colors.accent)}
       radius={22}
       notch={26}
       rule="#CFCFC6"

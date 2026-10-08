@@ -76,6 +76,8 @@ export type Stub = {
   usedAt?: number;
   /** Check-in details when kind is 'stay'. */
   stay?: Stay;
+  /** Colour picked for this ticket (see palette.ts); otherwise the app colour. */
+  color?: import('./palette').ColorId;
   /** Photo the person chose for the card on the home screen. */
   cover?: string;
   /** Set only on covers from the old automatic lookup; those are removed on launch. */
@@ -93,6 +95,8 @@ export type Settings = {
   screenshots?: 'on' | 'off';
   /** Pin today's ticket to the lock screen as a Live Activity. */
   lockScreen: boolean;
+  /** App colour (see palette.ts). Applied on restart. */
+  accent?: import('./palette').ColorId;
   /** The how-it-works slides have been shown. */
   introSeen?: boolean;
 };

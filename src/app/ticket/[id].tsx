@@ -25,6 +25,7 @@ import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
 import { pickCoverPhoto } from '../../lib/pickers';
 import { applyReread, groupStubs, isArchived, removeStub, setCover, setUsed, useStore } from '../../lib/store';
+import { ticketAccent } from '../../lib/palette';
 import { KINDS, type Stub } from '../../lib/types';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
 import { colors, fonts } from '../../theme';
@@ -183,7 +184,7 @@ export default function TicketScreen() {
 
   return (
     <ScrollView
-      style={styles.screen}
+      style={[styles.screen, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}
       contentContainerStyle={[styles.scrollBody, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}
     >
       <View style={[styles.topBar, { paddingHorizontal: H_PAD }]}>
@@ -312,7 +313,7 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
   return (
     <Perforated
       color={colors.paperWarm}
-      ground={colors.accent}
+      ground={ticketAccent(stub.color, colors.accent)}
       radius={22}
       notch={26}
       rule="#CFCFC6"
