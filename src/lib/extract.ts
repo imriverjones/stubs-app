@@ -403,10 +403,10 @@ const titleCase = (s: string) =>
 
 // ---------- event titles (screenshots have no useful file name) ----------
 
-const BRANDS = /^(ticketmaster|live nation|atg|atg tickets|axs|see tickets|seetickets|eventim|eventbrite|dice|skiddle|todaytix|lovetheatre|love theatre|london theatre direct|delfont mackintosh( theatres)?|nimax( theatres)?|ambassador theatre group|trainline|gigantic|fatsoma|tixr|stubhub|viagogo|twickets|ticketswap|fever|klook|getyourguide|viator|tiqets)$/i;
-const UI_TEXT = /^(back|done|close|cancel|share|edit|more|menu|home|account|help|info|information|details|(ticket|event|order|booking) details|(my|your) (tickets?|orders?|bookings?)|tickets?|e-?tickets?|mobile tickets?|m-?tickets?|(view|show|see) (tickets?|order|details|more)|orders?|upcoming|past|events?|add to (apple )?wallet|add to google (wallet|pay)|transfer|sell|resale|directions|get directions|map|show more|admit one|admission|general admission|standard|adult|child|concession|full price|venue|date|time|location|barcode|qr code|ticket holder|name|today|tomorrow|tonight|booking confirmed|order confirmed|confirmed|you'?re going!?|enjoy the show!?|search|settings|wallet|for you|discover)$/i;
-const NOT_TITLE = /^(qty|quantity|price|total|scan|present|show this|please|this ticket|ticket \d|\d+ of \d+|\d+ tickets?|order|booking|ref|subtotal|fee|terms|conditions|t&cs|doors|gates|age|over|under)\b/i;
-const VENUE = /\b(theatre|theater|arena|stadium|hall|academy|centre|center|club|palace|pavilion|opera house|coliseum|apollo|lyceum|forum|ballroom|playhouse|dome|bowl|gardens?|ground|square|street|road|lane|london|manchester|glasgow|dublin|birmingham)\b/i;
+const BRANDS = /^(ticketmaster|live nation|atg|atg tickets|axs|see tickets|seetickets|eventim|eventbrite|dice|skiddle|todaytix|lovetheatre|love theatre|london theatre direct|delfont|mackintosh|delfont mackintosh( theatres)?|theatres|nimax( theatres)?|ambassador theatre group|trainline|gigantic|fatsoma|tixr|stubhub|viagogo|twickets|ticketswap|fever|klook|getyourguide|viator|tiqets)$/i;
+const UI_TEXT = /^(log ?in|sign ?in|sign up|log out|my account|back|done|close|cancel|share|edit|more|menu|home|account|help|info|information|details|(ticket|event|order|booking) details|(my|your) (tickets?|orders?|bookings?)|tickets?|e-?tickets?|mobile tickets?|m-?tickets?|(view|show|see) (tickets?|order|details|more)|orders?|upcoming|past|events?|add to (apple )?wallet|add to google (wallet|pay)|transfer|sell|resale|directions|get directions|map|show more|admit one|admission|general admission|standard|adult|child|concession|full price|venue|date|time|location|barcode|qr code|ticket holder|name|today|tomorrow|tonight|booking confirmed|order confirmed|confirmed|you'?re going!?|enjoy the show!?|search|settings|wallet|for you|discover)$/i;
+const NOT_TITLE = /^(adult|child|children|senior|family|student|infant|concession|day pass|season pass|qty|quantity|price|total|scan|present|show this|please|this ticket|ticket \d|\d+ of \d+|\d+ tickets?|order|booking|ref|subtotal|fee|terms|conditions|t&cs|doors|gates|age|over|under)\b/i;
+const VENUE = /\b(theatres?|theaters?|arena|stadium|hall|academy|centre|center|club|palace|pavilion|opera house|coliseum|apollo|lyceum|forum|ballroom|playhouse|dome|bowl|gardens?|ground|square|street|road|lane|london|manchester|glasgow|dublin|birmingham)\b/i;
 const SMALL = new Set(['of', 'the', 'and', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'de', 'la', 'le', 'du', 'des', 'et']);
 
 function niceTitle(s: string): string {
@@ -425,31 +425,41 @@ function niceTitle(s: string): string {
 export function findEventTitle(lines: string[], today = new Date()): string | undefined {
   let best: { title: string; score: number } | undefined;
   const top = lines.slice(0, 25);
+  const isWhen = (x: string | undefined) => !!x && (findDates([x], today).length > 0 || !!parseTime(x));
   top.forEach((line, i) => {
-    for (const raw of line.split(/\t/)) {
+    const cells = line.split(/\t/);
+    cells.forEach((raw, k) => {
       const c = raw.trim().replace(/^[<‹←❮>›]+\s*/, '').replace(/\s*[>›→]+$/, '').trim();
       const letters = (c.match(/\p{L}/gu) ?? []).length;
       const digits = (c.match(/\d/g) ?? []).length;
-      if (c.length < 3 || c.length > 50 || letters < 3) continue;
-      if (digits / c.length > 0.25) continue;
-      if (/^\d{1,2}[:.]\d{2}/.test(c) || /\b(5G|4G|LTE)\b/.test(c) || /%$/.test(c)) continue;
-      if (UI_TEXT.test(c) || BRANDS.test(c) || NOT_TITLE.test(c) || labelAt(c) || AREA_ANY.test(c)) continue;
-      if (/@|www\.|https?:|\.(com|co\.uk|org|net)\b/i.test(c)) continue;
-      if (parseTime(c) || findDates([c], today).length) continue;
+      if (c.length < 3 || c.length > 50 || letters < 3) return;
+      if (digits / c.length > 0.25) return;
+      if (/^\d{1,2}[:.]\d{2}/.test(c) || /\b(5G|4G|LTE)\b/.test(c) || /%$/.test(c)) return;
+      if (UI_TEXT.test(c) || BRANDS.test(c) || NOT_TITLE.test(c) || labelAt(c) || AREA_ANY.test(c)) return;
+      if (/@|www\.|https?:|\.(com|co\.uk|org|net)\b/i.test(c)) return;
+      if (/[-–]$/.test(c)) return; // a word cut off at the edge of a poster
+      if (isWhen(c)) return;
       const words = c.split(/\s+/).length;
-      if (words > 9 || (words > 5 && /[.!?]$/.test(c))) continue;
+      if (words > 9 || (words > 5 && /[.!?]$/.test(c))) return;
 
       let score = 20 - i;
-      if (c === c.toUpperCase() && letters >= 4) score += 3;
+      // Mixed case reads as a real title; lone capitalised words are usually logos or poster art.
+      if (c !== c.toUpperCase()) score += 2;
+      if (words === 1) score -= 3;
       if (/^the\s/i.test(c)) score += 1;
       if (VENUE.test(c)) score -= 7;
       if (/ticket|order|booking|confirmation|receipt/i.test(c)) score -= 6;
       if (/^(mr|mrs|ms|miss|dr)\.?\s/i.test(c)) score -= 10;
-      // Titles usually sit just above the venue or the date.
-      const below = top.slice(i + 1, i + 3).join(' ');
-      if (VENUE.test(below) || findDates([below], today).length || parseTime(below)) score += 4;
+      // Titles sit just above the date or venue, best of all in the same column.
+      const next = top[i + 1]?.split(/\t/);
+      const sameColumn = next && next.length === cells.length ? next[k] : next?.length === 1 ? next[0] : undefined;
+      if (isWhen(sameColumn) || (sameColumn && VENUE.test(sameColumn))) score += 8;
+      else {
+        const below = top.slice(i + 1, i + 3).join(' ');
+        if (VENUE.test(below) || isWhen(below)) score += 4;
+      }
       if (!best || score > best.score) best = { title: niceTitle(c), score };
-    }
+    });
   });
   return best && best.score > 0 ? best.title : undefined;
 }
