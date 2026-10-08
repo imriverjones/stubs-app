@@ -10,7 +10,7 @@ import { Perforated } from './Perforated';
 import { ScreenshotCards } from './ScreenshotCards';
 import { RoundButton } from './RoundButton';
 import { showToast } from './Toast';
-import { dayKey, fmt, relativeDay } from '../lib/dates';
+import { dayKey, daysBetween, fmt, relativeDay } from '../lib/dates';
 import { summary } from '../lib/lockscreen';
 import { addSampleTicket, clearPast, groupStubs, removeStub, useStore } from '../lib/store';
 import { KINDS, type Stub } from '../lib/types';
@@ -65,7 +65,8 @@ export function Home({ mode }: { mode: HomeMode }) {
   // The next few tickets go in the carousel; everything after that is listed below.
   const live = [...groups.today, ...groups.upcoming];
   const next = live.slice(0, NEXT_COUNT);
-  const later = live.slice(NEXT_COUNT);
+  // Everything ahead, counting down (plus anything today that didn't fit in the carousel).
+  const comingUp = live.filter((s, i) => s.date > today || i >= NEXT_COUNT);
 
   // First launch: show how Stash works.
   const introSeen = useStore((s) => s.settings.introSeen);
@@ -151,17 +152,48 @@ export function Home({ mode }: { mode: HomeMode }) {
           </View>
         )}
 
-        {later.length > 0 && (
+        {comingUp.length > 0 && (
           <View style={styles.section}>
             <View style={styles.rowBetween}>
-              <Text style={label}>Later</Text>
+              <Text style={label}>Coming up</Text>
               <Text style={styles.hint}>Swipe left to delete</Text>
             </View>
-            {later.map((s) => (
+            {comingUp.map((s) => (
               <SwipeToDelete key={s.id} stub={s}>
-                <StubRow stub={s} />
+                <StubRow stub={s} countdown />
               </SwipeToDelete>
             ))}
+          </View>
+        )}
+
+        {!empty && (
+          <View style={styles.section}>
+            <Text style={label}>{isStays ? 'Add a stay' : 'Add a ticket'}</Text>
+            <View style={styles.tiles}>
+              {(isStays
+                ? [
+                    { icon: 'doc' as const, text: 'Paste host’s message', onPress: () => router.push('/paste') },
+                    { icon: 'photo' as const, text: 'Check-in screenshots', onPress: add.screens },
+                  ]
+                : [
+                    { icon: 'doc' as const, text: 'From Mail', onPress: () => router.push('/mail-help') },
+                    { icon: 'photo' as const, text: 'Screenshot', onPress: add.photos },
+                    { icon: 'arrow' as const, text: 'Ticket link', onPress: add.link },
+                  ]
+              ).map((t) => (
+                <Pressable
+                  key={t.text}
+                  accessibilityRole="button"
+                  onPress={t.onPress}
+                  style={({ pressed }) => [styles.tile, pressed && { opacity: 0.7 }]}
+                >
+                  <View style={styles.tileIcon}>
+                    <Icon name={t.icon} size={18} color={colors.ink} stroke={2.2} />
+                  </View>
+                  <Text style={styles.tileText}>{t.text}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         )}
 
@@ -265,10 +297,13 @@ function NextCard({ stub }: { stub: Stub }) {
   );
 }
 
-function StubRow({ stub, faded }: { stub: Stub; faded?: boolean }) {
-  const meta = [kindLabel(stub), stub.time, stub.kind === 'stay' ? ticketCount(stub) || relativeDay(stub.date) : stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
-    .filter(Boolean)
-    .join(' · ');
+function StubRow({ stub, faded, countdown }: { stub: Stub; faded?: boolean; countdown?: boolean }) {
+  const days = daysBetween(dayKey(), stub.date);
+  const meta = countdown
+    ? [fmt.short(stub.date), stub.time, kindLabel(stub), stub.tickets.length > 1 ? ticketCount(stub) : ''].filter(Boolean).join(' · ')
+    : [kindLabel(stub), stub.time, stub.kind === 'stay' ? ticketCount(stub) || relativeDay(stub.date) : stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
+        .filter(Boolean)
+        .join(' · ');
   return (
     <Pressable
       accessibilityRole="button"
@@ -276,10 +311,17 @@ function StubRow({ stub, faded }: { stub: Stub; faded?: boolean }) {
       onPress={() => openStub(stub.id)}
       style={({ pressed }) => [styles.row, faded && { opacity: 0.6 }, pressed && { opacity: 0.8 }]}
     >
-      <View style={styles.rowDate}>
-        <Text style={styles.rowDay}>{fmt.dayNum(stub.date)}</Text>
-        <Text style={styles.rowDow}>{fmt.dow(stub.date)}</Text>
-      </View>
+      {countdown ? (
+        <View style={styles.rowDate} accessibilityLabel={days <= 0 ? 'Today' : `In ${days} day${days === 1 ? '' : 's'}`}>
+          <Text style={[styles.rowDay, days > 99 && { fontSize: 24 }]}>{days <= 0 ? 'NOW' : days}</Text>
+          <Text style={styles.rowDow}>{days <= 0 ? 'TODAY' : days === 1 ? 'DAY' : 'DAYS'}</Text>
+        </View>
+      ) : (
+        <View style={styles.rowDate}>
+          <Text style={styles.rowDay}>{fmt.dayNum(stub.date)}</Text>
+          <Text style={styles.rowDow}>{fmt.dow(stub.date)}</Text>
+        </View>
+      )}
       <View style={styles.rowRule} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -420,6 +462,10 @@ const styles = StyleSheet.create({
   },
   pillText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
 
+  tiles: { flexDirection: 'row', gap: 10 },
+  tile: { flex: 1, backgroundColor: colors.paper, borderRadius: 14, padding: 14, gap: 10, minHeight: 92 },
+  tileIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
+  tileText: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18, color: colors.ink },
   row: { backgroundColor: colors.paper, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', height: 76 },
   rowDate: { width: 74, alignItems: 'center', justifyContent: 'center' },
   rowDay: { fontFamily: fonts.display, fontSize: 30, color: colors.ink },

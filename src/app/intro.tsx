@@ -54,7 +54,7 @@ function Step({ n, children }: { n: number; children: ReactNode }) {
 }
 
 /** Mail, step by step: tap the attachment, tap Share, tap Stash. */
-function MailArt() {
+export function MailArt() {
   return (
     <View style={art.mail}>
       <Step n={1}>

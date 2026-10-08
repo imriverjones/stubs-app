@@ -43,6 +43,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   }
 
   const screens = () => run(pickPhotos, true);
+  const photos = () => run(pickPhotos);
 
   function openStays() {
     const options = ['Paste the host’s message', 'Check-in screenshots', 'Cancel'];
@@ -99,5 +100,5 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     }
   }
 
-  return { open, screens, busy };
+  return { open, screens, photos, link: askForLink, busy };
 }
