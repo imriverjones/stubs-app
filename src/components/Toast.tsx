@@ -3,14 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts } from '../theme';
 
-type ToastState = { id: number; message: string; actionLabel?: string; onAction?: () => void } | null;
+type ToastState = { id: number; message: string; actionLabel?: string; onAction?: () => void; sticky?: boolean } | null;
 
 let toast: ToastState = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
-export function showToast(message: string, action?: { label: string; onPress: () => void }) {
-  toast = { id: Date.now(), message, actionLabel: action?.label, onAction: action?.onPress };
+export function showToast(message: string, action?: { label: string; onPress: () => void }, opts?: { sticky?: boolean }) {
+  toast = { id: Date.now(), message, actionLabel: action?.label, onAction: action?.onPress, sticky: opts?.sticky };
   emit();
 }
 
@@ -32,7 +32,7 @@ export function ToastHost() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || current.sticky) return;
     const t = setTimeout(() => hide(current.id), 6000);
     return () => clearTimeout(t);
   }, [current]);
