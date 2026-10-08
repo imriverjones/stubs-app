@@ -89,10 +89,9 @@ export function MailArt() {
 }
 
 function ShareArt() {
-  const rows: { icon: 'doc' | 'photo' | 'arrow'; text: string; from: string }[] = [
+  const rows: { icon: 'doc' | 'photo'; text: string; from: string }[] = [
     { icon: 'doc', text: 'PDF ticket', from: 'Mail · Files' },
     { icon: 'photo', text: 'Screenshot', from: 'Photos' },
-    { icon: 'arrow', text: 'Ticket link', from: 'Safari · Mail' },
   ];
   return (
     <View style={art.share}>
@@ -180,13 +179,13 @@ const SLIDES: Slide[] = [
   {
     kicker: 'From your email',
     title: 'Share it to Stash',
-    body: 'Most tickets arrive by email. Tap the ticket, tap Share, then Stash. If the email has a “View tickets” button instead, press and hold it, then Share → Stash.',
+    body: 'Most tickets arrive by email. Tap the ticket, tap Share, then Stash. Only a “View tickets” button? Open it, screenshot the ticket and add the screenshot.',
     art: <MailArt />,
   },
   {
     kicker: 'Everything else',
     title: 'Screenshots and links too',
-    body: 'Tap + for a screenshot, a PDF or a ticket link. Staying in an Airbnb? Use the Stays tab: paste the host’s message and Stash keeps the address, door code and Wi-Fi together.',
+    body: 'Tap + for a screenshot or a PDF. Staying in an Airbnb? Use the Stays tab: paste the host’s message and Stash keeps the address, door code and Wi-Fi together.',
     art: <ShareArt />,
   },
   {

@@ -22,26 +22,6 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     }
   }
 
-  function askForLink() {
-    Alert.prompt(
-      'Ticket link',
-      'Paste the link to your ticket page. You can sign in on the next screen if it asks.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open',
-          onPress: (value?: string) => {
-            const url = value?.trim();
-            if (url) router.push({ pathname: '/web', params: { url: /^https?:\/\//i.test(url) ? url : `https://${url}` } });
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'url',
-    );
-  }
-
   const screens = () => run(pickPhotos, true);
   const photos = () => run(pickPhotos);
 
@@ -73,13 +53,10 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   function open() {
     if (mode === 'stays') return openStays();
     const ios = Platform.OS === 'ios';
-    const options = ios
-      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
-      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
+    const options = ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
     const handle = (i: number) => {
       if (i === 0) run(pickPhotos);
       if (i === 1) run(pickDocument);
-      if (ios && i === 2) askForLink();
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -87,7 +64,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
           options,
           cancelButtonIndex: options.length - 1,
           title: 'Add a ticket',
-          message: 'Tip: in Mail or Safari, tap Share → Stash.',
+          message: 'Tip: in Mail, tap the ticket, then Share → Stash.',
         },
         handle,
       );
@@ -100,5 +77,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     }
   }
 
-  return { open, screens, photos, link: askForLink, busy };
+  const pdf = () => run(pickDocument);
+
+  return { open, screens, photos, pdf, busy };
 }

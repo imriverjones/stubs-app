@@ -178,7 +178,7 @@ export function Home({ mode }: { mode: HomeMode }) {
                 : [
                     { icon: 'doc' as const, text: 'From Mail', onPress: () => router.push('/mail-help') },
                     { icon: 'photo' as const, text: 'Screenshot', onPress: add.photos },
-                    { icon: 'arrow' as const, text: 'Ticket link', onPress: add.link },
+                    { icon: 'doc' as const, text: 'PDF from Files', onPress: add.pdf },
                   ]
               ).map((t) => (
                 <Pressable

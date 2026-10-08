@@ -21,8 +21,8 @@ export default function MailHelp() {
         <Text style={styles.title}>Share it to Stash</Text>
         <MailArt />
         <Text style={styles.body}>
-          Email has a “View tickets” button instead of a PDF? Press and hold the button, then Share → Stash. You can sign in
-          if the page asks, then tap Capture.
+          Email has a “View tickets” button instead of a PDF? Open it, screenshot the ticket with the QR code showing, then
+          tap + → Screenshot.
         </Text>
         <Text style={styles.body}>Works the same in Gmail and Outlook: open the attachment, then the Share button.</Text>
       </ScrollView>
