@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { StubForm } from '../components/StubForm';
 import { showToast } from '../components/Toast';
-import { discardDraft, saveDraft, useStore } from '../lib/store';
+import { discardDraft, isArchived, saveDraft, useStore } from '../lib/store';
 
 function leave() {
   if (router.canDismiss()) router.dismissAll();
@@ -37,7 +37,15 @@ export default function Add() {
         leaving.current = true;
         const saved = await saveDraft(fields);
         leave();
-        if (saved) showToast(saved.reminderId ? 'Saved. Reminder set.' : 'Saved.');
+        if (saved) {
+          showToast(
+            isArchived(saved)
+              ? 'Saved to Archive: that date has passed.'
+              : saved.reminderId
+                ? 'Saved. Reminder set.'
+                : 'Saved.',
+          );
+        }
       }}
     />
   );

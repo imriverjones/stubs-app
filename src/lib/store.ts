@@ -177,7 +177,7 @@ export async function applyReread(id: string, found: Extracted): Promise<number>
     details: found.shared.length ? found.shared : current.details,
     kind: (current.kind === 'event' || current.kind === 'other') && found.kind ? found.kind : current.kind,
     time: current.time ?? found.time,
-    title: current.title.trim() ? current.title : found.title ?? current.title,
+    title: found.title && /^(ticket|tickets|e-?tickets?|screenshot|image|photo)?$/i.test(current.title.trim()) ? found.title : current.title,
   };
   if (next.time !== current.time) {
     await cancelReminder(current.reminderId);

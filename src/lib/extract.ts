@@ -25,7 +25,7 @@ const REF = /^[A-Z0-9][A-Z0-9-]{4,19}$/i; // "KX4-82Q1", "8F3QLJ7"
 const TIME_VALUE = /^\d{1,2}[:.]\d{2}(\s?[ap]\.?m\.?)?$/i;
 
 const LABELS: LabelDef[] = [
-  { label: 'Seat', words: ['seat', 'seat no', 'seat number', 'sitz', 'sitzplatz', 'platz', 'posto', 'asiento', 'siège', 'place', 'θέση'], perTicket: true },
+  { label: 'Seat', words: ['seat', 'seats', 'seat(s)', 'seat no', 'seat nos', 'seat number', 'seat numbers', 'sitz', 'sitzplatz', 'platz', 'posto', 'asiento', 'siège', 'place', 'θέση'], perTicket: true },
   { label: 'Row', words: ['row', 'reihe', 'fila', 'rang', 'σειρά'], perTicket: true },
   { label: 'Section', wordValues: true, words: ['section', 'sec', 'sector', 'sektor', 'settore', 'stand', 'tribune', 'tribüne'], perTicket: true },
   { label: 'Block', wordValues: true, words: ['block', 'bloc', 'blocco', 'area', 'zone', 'zona'], perTicket: true },
@@ -82,8 +82,45 @@ const STOP = new Set(
   'the and via at of in on for to from by is are be this that your you with open opens opening closes closed fee fees number information details detail time date only please see free all any none here there per'.split(' '),
 );
 
+// Theatre and venue areas: "Stalls", "Dress Circle", "Grand Circle", "Upper Tier", "Box C".
+const AREA_WORDS = `(?:(?:royal|dress|grand|upper|lower|front|rear|middle|family)\\s+)?(?:stalls|circle|balcony|mezzanine|orchestra|gallery|loge|parterre)|(?:upper|lower|middle)\\s+(?:tier|level)|box\\s+[A-Z0-9]{1,3}`;
+const AREA_START = new RegExp(`^(${AREA_WORDS})(?![\\p{L}])`, 'iu');
+const AREA_ANY = new RegExp(`(?<![\\p{L}])(${AREA_WORDS})(?![\\p{L}])`, 'iu');
+const niceArea = (a: string) =>
+  a.replace(/\s+/g, ' ').toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase()).replace(/ ([a-z0-9]{1,3})$/i, (m) => m.toUpperCase());
+
+// A single seat: "12", "J12", "J 12", "112A".
+const SEAT_CODE = /^([A-Z]{1,2})?\s?(\d{1,3}[A-Z]?)$/i;
+
+/** "J11, J12", "J11 & J12", "11-13", "J11–J13" → each seat; null if it isn't a list. */
+function seatList(raw: string): string[] | null {
+  const v = raw.trim().replace(/^[:#.\-–\s]+/, '').split(/\s{2,}|\t/)[0].trim();
+  const range = v.match(/^([A-Z]{1,2})?\s?(\d{1,3})\s*[-–]\s*(?:\1)?\s?(\d{1,3})(?!\d)/i);
+  if (range) {
+    const a = +range[2], b = +range[3];
+    if (b > a && b - a < 10) return Array.from({ length: b - a + 1 }, (_, k) => `${(range[1] ?? '').toUpperCase()}${a + k}`);
+  }
+  const parts = v.split(/\s*(?:,|&|\+|\/|\band\b)\s*/i).filter(Boolean);
+  if (parts.length < 2) return null;
+  const seats: string[] = [];
+  let row = '';
+  for (const part of parts) {
+    const m = part.match(SEAT_CODE);
+    if (!m) break;
+    row = m[1] ? m[1].toUpperCase() : row;
+    seats.push(`${row}${m[2].toUpperCase()}`);
+  }
+  return seats.length >= 2 ? seats : null;
+}
+
 function cleanValue(def: LabelDef, raw: string): string | null {
   let v = raw.trim().replace(/^[:#.\-–\s(]+/, '').replace(/\)\s*$/, '').split(/\s{2,}|\t/)[0].trim();
+  if (def.wordValues) {
+    const area = v.match(AREA_START);
+    if (area) return niceArea(area[1]);
+  }
+  // "Seat J 12" → "J12"
+  if (def.label === 'Seat') v = v.replace(/^([A-Z]{1,2})\s(\d{1,3}[A-Z]?)(?![\d\p{L}])/iu, '$1$2');
   if (def.value === TIME_VALUE) {
     const t = parseTime(v);
     return t ?? null;
@@ -116,7 +153,28 @@ function findDetails(text: string): Detail[] {
   const out: Detail[] = [];
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
+  const soloLabel = (l: string | undefined) => {
+    if (!l || /\t|\s{3,}/.test(l)) return null;
+    const x = labelAt(l);
+    return x && !x.rest ? x : null;
+  };
+
   for (let i = 0; i < lines.length; i++) {
+    // Labels stacked above their values (OCR reads columns top to bottom): "ROW" "SEAT" "J" "12"
+    const run: LabelDef[] = [];
+    for (let j = i, x = soloLabel(lines[j]); x; x = soloLabel(lines[++j])) run.push(x.def);
+    if (run.length >= 2 && i + run.length * 2 <= lines.length) {
+      const vals = lines.slice(i + run.length, i + run.length * 2);
+      if (vals.every((v) => !INLINE_RE_TEST.test(v))) {
+        run.forEach((def, k) => {
+          const v = cleanValue(def, vals[k]);
+          if (v) out.push({ label: def.label, value: v });
+        });
+        i += run.length * 2 - 1;
+        continue;
+      }
+    }
+
     const cells = lines[i].split(/\t|\s{3,}|\s\|\s/).map((c) => c.trim()).filter(Boolean);
     const labels = cells.map(labelAt);
 
@@ -125,7 +183,14 @@ function findDetails(text: string): Detail[] {
       (l && !l.rest) || /^[A-Z][A-Z /&.-]{1,20}:?$/.test(c);
     const labelCount = labels.filter((l) => l && !l.rest).length;
     if (labels.length > 1 && labelCount >= 2 && cells.every((c, k) => isHeading(c, labels[k])) && i + 1 < lines.length) {
-      const values = lines[i + 1].split(/\t|\s{2,}|\s\|\s/).map((c) => c.trim()).filter(Boolean);
+      let values = lines[i + 1].split(/\t|\s{2,}|\s\|\s/).map((c) => c.trim()).filter(Boolean);
+      if (values.length !== labels.length) {
+        // One OCR box for the whole row: "STALLS J 12", keeping "Dress Circle" together.
+        const area = lines[i + 1].match(AREA_START)?.[1];
+        const rest = (area ? lines[i + 1].slice(area.length) : lines[i + 1]).trim().split(/\s+/).filter(Boolean);
+        const words = area ? [area, ...rest] : rest;
+        if (words.length === labels.length) values = words;
+      }
       if (values.length === labels.length) {
         labels.forEach((l, k) => {
           if (!l || l.rest) return;
@@ -145,6 +210,11 @@ function findDetails(text: string): Detail[] {
       if (!def) return;
       const startV = (m.index ?? 0) + m[0].length;
       const endV = k + 1 < hits.length ? hits[k + 1].index ?? lines[i].length : lines[i].length;
+      const seats = def.label === 'Seat' ? seatList(lines[i].slice(startV, endV)) : null;
+      if (seats) {
+        seats.forEach((value) => out.push({ label: 'Seat', value }));
+        return;
+      }
       let v = cleanValue(def, lines[i].slice(startV, endV));
       // Label alone at the end of a line: value on the next line, if that line isn't labels.
       if (!v && k === hits.length - 1 && !lines[i].slice(startV).trim() && lines[i + 1] && !INLINE_RE_TEST.test(lines[i + 1])) {
@@ -152,6 +222,16 @@ function findDetails(text: string): Detail[] {
       }
       if (v) out.push({ label: def.label, value: v });
     });
+
+    // Theatre style without labels: "Stalls J12", "Dress Circle, Row B, Seat 14", "GRAND CIRCLE B 14".
+    const hasLabel = (name: string) => hits.some((m) => WORD_TO_DEF.get(m[1].toLowerCase())?.label === name);
+    for (const cell of cells) {
+      const area = cell.length <= 45 ? cell.match(AREA_START) : null;
+      if (!area) continue;
+      if (!hasLabel('Section') && !hasLabel('Block')) out.push({ label: 'Section', value: niceArea(area[1]) });
+      const after = cell.slice(area[0].length).match(/^\s*[,:\-–·|]?\s*([A-Z]{1,2})\s?-?\s?(\d{1,3})(?![\d\p{L}])/u);
+      if (after && !hasLabel('Seat') && !hasLabel('Row')) out.push({ label: 'Seat', value: `${after[1].toUpperCase()}${after[2]}` });
+    }
   }
   return out;
 }
@@ -288,6 +368,7 @@ function guessKind(text: string): Kind | undefined {
   if (/\b(e-?visa|visa|esta|electronic travel authori[sz]ation|entry permit)\b/.test(t)) return 'visa';
   if (/\b(car hire|car rental|rental agreement|pick-?up location|hertz|avis|europcar|sixt|enterprise rent|parking)\b/.test(t)) return 'car';
   if (/\b(appointment|clinic|hospital|vaccination|vaccine|pharmacy|gp|dentist|medical)\b/.test(t)) return 'medical';
+  if (/\b(theatre|theater|musical|matinee|stalls|dress circle|royal circle|grand circle|west end|broadway)\b/.test(t)) return 'event';
   if (/\b(concert|gig|tour|live|festival|doors open|support act|arena|academy)\b/.test(t)) return 'gig';
   if (/\b(excursion|activity|experience|lesson|class|cruise|boat trip|museum|waterpark|aquapark|theme park|zoo)\b/.test(t)) return 'activity';
   if (/\b(admission|entry|museum|park|tickets?)\b/.test(t)) return 'event';
@@ -308,7 +389,8 @@ function findRoute(lines: string[]): string | undefined {
     if (t && !to) to = place(t[2]) ?? place(lines[i + 1] ?? '');
     const arrow = l.match(/^([\p{L} .'-]{3,30}?)\s*(?:→|->|>)\s*([\p{L} .'-]{3,30})$/u) ?? l.match(/^([\p{L} .'-]{3,30}?)\s+(?:–|—|-|to)\s+([\p{L} .'-]{3,30})$/u);
     const UI = /^(add|share|save|view|go|back|open|apple|wallet|download|print|email|send|next|previous|close)\b/i;
-    if (arrow && !from && !to && /[A-Z]/.test(arrow[1][0]) && !UI.test(arrow[1].trim()) && !UI.test(arrow[2].trim())) {
+    const notPlace = (x: string) => UI.test(x.trim()) || INLINE_RE_TEST.test(x) || AREA_ANY.test(x);
+    if (arrow && !from && !to && /[A-Z]/.test(arrow[1][0]) && !notPlace(arrow[1]) && !notPlace(arrow[2])) {
       from = place(arrow[1]);
       to = place(arrow[2]);
     }
@@ -318,6 +400,59 @@ function findRoute(lines: string[]): string | undefined {
 
 const titleCase = (s: string) =>
   s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s-])\p{L}/gu, (c) => c.toUpperCase()) : s;
+
+// ---------- event titles (screenshots have no useful file name) ----------
+
+const BRANDS = /^(ticketmaster|live nation|atg|atg tickets|axs|see tickets|seetickets|eventim|eventbrite|dice|skiddle|todaytix|lovetheatre|love theatre|london theatre direct|delfont mackintosh( theatres)?|nimax( theatres)?|ambassador theatre group|trainline|gigantic|fatsoma|tixr|stubhub|viagogo|twickets|ticketswap|fever|klook|getyourguide|viator|tiqets)$/i;
+const UI_TEXT = /^(back|done|close|cancel|share|edit|more|menu|home|account|help|info|information|details|(ticket|event|order|booking) details|(my|your) (tickets?|orders?|bookings?)|tickets?|e-?tickets?|mobile tickets?|m-?tickets?|(view|show|see) (tickets?|order|details|more)|orders?|upcoming|past|events?|add to (apple )?wallet|add to google (wallet|pay)|transfer|sell|resale|directions|get directions|map|show more|admit one|admission|general admission|standard|adult|child|concession|full price|venue|date|time|location|barcode|qr code|ticket holder|name|today|tomorrow|tonight|booking confirmed|order confirmed|confirmed|you'?re going!?|enjoy the show!?|search|settings|wallet|for you|discover)$/i;
+const NOT_TITLE = /^(qty|quantity|price|total|scan|present|show this|please|this ticket|ticket \d|\d+ of \d+|\d+ tickets?|order|booking|ref|subtotal|fee|terms|conditions|t&cs|doors|gates|age|over|under)\b/i;
+const VENUE = /\b(theatre|theater|arena|stadium|hall|academy|centre|center|club|palace|pavilion|opera house|coliseum|apollo|lyceum|forum|ballroom|playhouse|dome|bowl|gardens?|ground|square|street|road|lane|london|manchester|glasgow|dublin|birmingham)\b/i;
+const SMALL = new Set(['of', 'the', 'and', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'de', 'la', 'le', 'du', 'des', 'et']);
+
+function niceTitle(s: string): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  if (t !== t.toUpperCase()) return t;
+  return t
+    .toLowerCase()
+    .split(' ')
+    .map((w, k) =>
+      /\p{L}\.\p{L}/u.test(w) ? w.toUpperCase() : k > 0 && SMALL.has(w) ? w : w.replace(/^(\P{L}*)(\p{L})/u, (_, a, b) => a + b.toUpperCase()),
+    )
+    .join(' ');
+}
+
+/** The show, match or attraction name: near the top, not a date, label, button, brand or venue. */
+export function findEventTitle(lines: string[], today = new Date()): string | undefined {
+  let best: { title: string; score: number } | undefined;
+  const top = lines.slice(0, 25);
+  top.forEach((line, i) => {
+    for (const raw of line.split(/\t/)) {
+      const c = raw.trim().replace(/^[<‹←❮>›]+\s*/, '').replace(/\s*[>›→]+$/, '').trim();
+      const letters = (c.match(/\p{L}/gu) ?? []).length;
+      const digits = (c.match(/\d/g) ?? []).length;
+      if (c.length < 3 || c.length > 50 || letters < 3) continue;
+      if (digits / c.length > 0.25) continue;
+      if (/^\d{1,2}[:.]\d{2}/.test(c) || /\b(5G|4G|LTE)\b/.test(c) || /%$/.test(c)) continue;
+      if (UI_TEXT.test(c) || BRANDS.test(c) || NOT_TITLE.test(c) || labelAt(c) || AREA_ANY.test(c)) continue;
+      if (/@|www\.|https?:|\.(com|co\.uk|org|net)\b/i.test(c)) continue;
+      if (parseTime(c) || findDates([c], today).length) continue;
+      const words = c.split(/\s+/).length;
+      if (words > 9 || (words > 5 && /[.!?]$/.test(c))) continue;
+
+      let score = 20 - i;
+      if (c === c.toUpperCase() && letters >= 4) score += 3;
+      if (/^the\s/i.test(c)) score += 1;
+      if (VENUE.test(c)) score -= 7;
+      if (/ticket|order|booking|confirmation|receipt/i.test(c)) score -= 6;
+      if (/^(mr|mrs|ms|miss|dr)\.?\s/i.test(c)) score -= 10;
+      // Titles usually sit just above the venue or the date.
+      const below = top.slice(i + 1, i + 3).join(' ');
+      if (VENUE.test(below) || findDates([below], today).length || parseTime(below)) score += 4;
+      if (!best || score > best.score) best = { title: niceTitle(c), score };
+    }
+  });
+  return best && best.score > 0 ? best.title : undefined;
+}
 
 // ---------- boarding passes (IATA BCBP, the standard in airline barcodes) ----------
 
@@ -447,6 +582,7 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
         if (list.some((d) => d.label === label)) return; // the barcode already said
         if (values.length === slots) list.push({ label, value: values[k] });
         else if (values.length === 1) list.push({ label, value: values[0] });
+        else if (slots === 1) list.push({ label, value: values.join(', ') });
       });
       perTicket.push(list);
     }
@@ -466,11 +602,16 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
   if (doors && doors.value === startTime) shared.splice(shared.indexOf(doors), 1);
 
   const bp = pass;
+  const kind: Kind | undefined = bp ? 'flight' : guessKind(allText);
+  const route = findRoute(lines) ?? (bp ? `${bp.from} → ${bp.to}` : undefined);
+  const firstPage = (pages[0]?.text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const travel = kind === 'ferry' || kind === 'train' || kind === 'bus' || kind === 'flight';
+  const title = travel ? route ?? findEventTitle(firstPage, today) : findEventTitle(firstPage, today) ?? route;
   return {
     date: best?.date ?? bp?.date,
     time: startTime,
-    kind: bp ? 'flight' : guessKind(allText),
-    title: findRoute(lines) ?? (bp ? `${bp.from} → ${bp.to}` : undefined),
+    kind,
+    title,
     shared,
     perTicket: perTicket.slice(0, ticketCount),
   };
