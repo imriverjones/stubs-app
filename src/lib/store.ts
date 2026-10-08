@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { addDays, dayKey, toDate } from './dates';
+import { addDays, dayKey, daysBetween, toDate } from './dates';
 import { File } from 'expo-file-system';
 import { dbFile, deleteStubFiles, newId, rebase, rootDir, stubDir } from './files';
 import type { Extracted } from './extract';
@@ -17,12 +17,43 @@ type State = {
   seenShots: string[];
   /** The lock screen card currently showing, and which stub it belongs to. */
   lockCard: { activityId: string; stubId: string } | null;
+  /** A light record of every ticket ever saved (no files), kept after auto-clear for Year in tickets. */
+  history: HistoryItem[];
 };
 
-let state: State = { loaded: false, stubs: [], settings: DEFAULT_SETTINGS, draft: null, seenShots: [], lockCard: null };
+export type HistoryItem = { id: string; title: string; kind: Stub['kind']; date: string; nights?: number; place?: string };
+
+const COUNTRY = /^(greece|uk|united kingdom|england|scotland|wales|ireland|france|spain|italy|portugal|germany|austria|switzerland|usa|united states|netherlands|croatia)$/i;
+
+/** Where it was: a stay's town, or a journey's destination (not airport codes). */
+export function placeOf(s: Pick<Stub, 'kind' | 'title' | 'stay'>): string | undefined {
+  if (s.kind === 'stay') {
+    return s.stay?.address
+      ?.split(',')
+      .map((p) => p.replace(/\b[A-Z]{0,2}\s?\d[\d\s-]*[A-Z]{0,2}\b/g, '').replace(/#\S+/g, '').trim())
+      .filter((p) => p && !COUNTRY.test(p) && !/\d/.test(p) && p.split(' ').length <= 4)
+      .pop();
+  }
+  const route = s.title.split(/\s*(?:→|->)\s*/);
+  if (route.length === 2 && !/^[A-Z]{3}$/.test(route[1].trim())) return route[1].trim();
+  return undefined;
+}
+
+function toHistory(s: Stub): HistoryItem {
+  const nights = s.kind === 'stay' && s.stay?.checkOutDate ? Math.max(0, daysBetween(s.date, s.stay.checkOutDate)) : undefined;
+  return { id: s.id, title: s.title, kind: s.kind, date: s.date, nights, place: placeOf(s) };
+}
+
+let state: State = { loaded: false, stubs: [], settings: DEFAULT_SETTINGS, draft: null, seenShots: [], lockCard: null, history: [] };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State>) {
+  if (patch.stubs) {
+    // Keep the history in step with what's saved (removals are handled where people delete).
+    const byId = new Map((patch.history ?? state.history).map((h) => [h.id, h]));
+    for (const s of patch.stubs) if (!s.sample) byId.set(s.id, toHistory(s));
+    patch = { ...patch, history: [...byId.values()] };
+  }
   state = { ...state, ...patch };
   listeners.forEach((l) => l());
 }
@@ -42,7 +73,9 @@ export const getState = () => state;
 
 function persist() {
   try {
-    dbFile().write(JSON.stringify({ v: 1, stubs: state.stubs, settings: state.settings, seenShots: state.seenShots, lockCard: state.lockCard }));
+    dbFile().write(
+      JSON.stringify({ v: 1, stubs: state.stubs, settings: state.settings, seenShots: state.seenShots, lockCard: state.lockCard, history: state.history }),
+    );
   } catch (e) {
     console.warn('Could not save stubs', e);
   }
@@ -54,6 +87,7 @@ export async function load() {
   let settings = DEFAULT_SETTINGS;
   let seenShots: string[] = [];
   let lockCard: State['lockCard'] = null;
+  let history: HistoryItem[] = [];
   try {
     const file = dbFile();
     if (file.exists) {
@@ -63,13 +97,14 @@ export async function load() {
       settings.themePhoto = rebase(settings.themePhoto);
       seenShots = Array.isArray(data.seenShots) ? data.seenShots : [];
       lockCard = data.lockCard ?? null;
+      history = Array.isArray(data.history) ? data.history : [];
     }
   } catch (e) {
     console.warn('Could not read stubs', e);
   }
   const fixed = stubs.map(rebaseStub).map(dropDuplicateBarcodes).map(dropAutoCover);
   const moved = JSON.stringify(fixed) !== JSON.stringify(stubs);
-  set({ loaded: true, stubs: sortStubs(fixed), settings, seenShots, lockCard });
+  set({ loaded: true, history, stubs: sortStubs(fixed), settings, seenShots, lockCard });
   if (moved) persist();
   cleanUp();
 }
@@ -163,7 +198,8 @@ export function removeStub(id: string): () => void {
   const stub = state.stubs.find((s) => s.id === id);
   if (!stub) return () => {};
   cancelReminder(stub.reminderId);
-  set({ stubs: state.stubs.filter((s) => s.id !== id) });
+  // Deleted on purpose: it shouldn't count in Year in tickets either (undo puts it back).
+  set({ stubs: state.stubs.filter((s) => s.id !== id), history: state.history.filter((h) => h.id !== id) });
   persist();
 
   const timer = setTimeout(() => {

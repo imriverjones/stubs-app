@@ -198,6 +198,10 @@ export default function Settings() {
           <Text style={styles.rowText}>How Stash works</Text>
           <Icon name="arrow" size={16} color={colors.ink} />
         </Pressable>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/recap')} style={styles.row}>
+          <Text style={styles.rowText}>Your year in tickets</Text>
+          <Icon name="arrow" size={16} color={colors.ink} />
+        </Pressable>
       </View>
 
       <View style={styles.block}>

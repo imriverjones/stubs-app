@@ -57,6 +57,7 @@ export function Home({ mode }: { mode: HomeMode }) {
   const all = useStore((s) => s.stubs);
   const stubs = useMemo(() => all.filter((s) => (s.kind === 'stay') === (mode === 'stays')), [all, mode]);
   const isStays = mode === 'stays';
+  const historyCount = useStore((s) => s.history.length);
   const keepPastDays = useStore((s) => s.settings.keepPastDays);
   const today = dayKey();
   const [now, setNow] = useState(() => Date.now());
@@ -201,6 +202,13 @@ export function Home({ mode }: { mode: HomeMode }) {
               ))}
             </View>
           </View>
+        )}
+
+        {!isStays && historyCount >= 3 && (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/recap')} style={({ pressed }) => [styles.recapRow, pressed && { opacity: 0.8 }]}>
+            <Text style={styles.recapText}>Your {new Date().getFullYear()} in tickets</Text>
+            <Icon name="arrow" size={16} color={colors.accent} />
+          </Pressable>
         )}
 
         {groups.archive.length > 0 && (
@@ -475,6 +483,8 @@ const styles = StyleSheet.create({
   },
   pillText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
 
+  recapRow: { backgroundColor: colors.ink, borderRadius: 14, minHeight: 56, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  recapText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.paper },
   tiles: { flexDirection: 'row', gap: 10 },
   tile: { flex: 1, backgroundColor: colors.paper, borderRadius: 14, padding: 14, gap: 10, minHeight: 92 },
   tileIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
