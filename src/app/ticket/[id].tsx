@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../../components/CodeView';
+import { Holo } from '../../components/Holo';
 import { StayCard } from '../../components/StayCard';
 import { Icon } from '../../components/Icon';
 import { Perforated } from '../../components/Perforated';
@@ -319,6 +320,7 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
       rule="#CFCFC6"
       top={
         <View style={styles.cardTop}>
+          {stub.holo && <Holo intensity={0.32} />}
           <Text style={styles.cardLabel}>
             {kind}
             {count > 1 ? ` · ${index + 1} of ${count}` : ''}

@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useW
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
+import { Holo } from './Holo';
 import { Logo } from './Logo';
 import { ticketAccent, ticketDeep } from '../lib/palette';
 import { NotifyPrompt } from './NotifyPrompt';
@@ -278,6 +279,7 @@ function NextCard({ stub }: { stub: Stub }) {
                 <View style={[StyleSheet.absoluteFill, styles.coverShade]} />
               </>
             )}
+            {stub.holo && <Holo />}
             <View style={styles.rowBetween}>
               <View style={[styles.tag, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}>
                 <Text style={styles.tagText}>{kindLabel(stub)}</Text>

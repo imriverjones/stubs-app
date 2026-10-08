@@ -76,6 +76,8 @@ export type Stub = {
   usedAt?: number;
   /** Check-in details when kind is 'stay'. */
   stay?: Stay;
+  /** Holographic foil finish on this ticket's card. */
+  holo?: boolean;
   /** Colour picked for this ticket (see palette.ts); otherwise the app colour. */
   color?: import('./palette').ColorId;
   /** Photo the person chose for the card on the home screen. */

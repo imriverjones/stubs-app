@@ -21,7 +21,7 @@ import { colors, fonts, label } from '../theme';
 import { CodeView } from './CodeView';
 import { Perforated } from './Perforated';
 
-export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay' | 'color'>;
+export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay' | 'color' | 'holo'>;
 
 const STAY_FIELDS: { key: keyof Stay; label: string; placeholder: string; multiline?: boolean; mono?: boolean; keyboard?: 'phone-pad' }[] = [
   { key: 'address', label: 'Address', placeholder: 'Street, town, postcode', multiline: true },
@@ -56,6 +56,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
   const [time, setTime] = useState<string | undefined>(stub.time);
   const [stay, setStay] = useState<Stay>(stub.stay ?? {});
   const [color, setColor] = useState<ColorId | undefined>(stub.color);
+  const [holo, setHolo] = useState(!!stub.holo);
   const isStay = kind === 'stay';
   const setStayField = (key: keyof Stay, value: string | undefined) => setStay((s) => ({ ...s, [key]: value || undefined }));
   const onOutDate = (_: DateTimePickerEvent, d?: Date) => d && setStayField('checkOutDate', dayKey(d));
@@ -159,6 +160,10 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
         <View style={styles.field}>
           <Text style={label}>Colour</Text>
           <Swatches value={color} onChange={setColor} />
+          <View style={[styles.box, styles.boxRow]}>
+            <Text style={styles.boxLabel}>Holographic finish</Text>
+            <Toggle value={holo} onValueChange={setHolo} accessibilityLabel="Holographic finish" />
+          </View>
         </View>
 
         <View style={styles.box}>
@@ -310,7 +315,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => onSave({ title, kind, date, time, stay: isStay ? stay : stub.stay, color })}
+          onPress={() => onSave({ title, kind, date, time, stay: isStay ? stay : stub.stay, color, holo })}
           style={({ pressed }) => [styles.save, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.saveText}>{saveLabel}</Text>
