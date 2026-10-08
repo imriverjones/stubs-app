@@ -121,7 +121,6 @@ export default function Settings() {
             <Text style={styles.rowText}>Remove background photo</Text>
           </Pressable>
         ) : null}
-        <Text style={styles.note}>For one ticket only: open it, then ⋯ → Choose cover photo.</Text>
       </View>
 
       <View style={styles.block}>

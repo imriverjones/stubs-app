@@ -22,10 +22,8 @@ import { Perforated } from '../../components/Perforated';
 import { RoundButton } from '../../components/RoundButton';
 import { showToast } from '../../components/Toast';
 import { fmt, relativeDay } from '../../lib/dates';
-import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
-import { pickCoverPhoto } from '../../lib/pickers';
-import { applyReread, groupStubs, isArchived, removeStub, setCover, setUsed, useStore } from '../../lib/store';
+import { groupStubs, isArchived, removeStub, setUsed, useStore } from '../../lib/store';
 import { ticketAccent } from '../../lib/palette';
 import { KINDS, type Stub } from '../../lib/types';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
@@ -80,7 +78,6 @@ export default function TicketScreen() {
   const more = () => {
     const sample = !!stub.sample;
     const isStay = stub.kind === 'stay';
-    const hasPages = stub.tickets.some((t) => t.pageUri);
     const items: { label: string; run: () => void; destructive?: boolean }[] = [
       ...(isStay
         ? [
@@ -110,32 +107,6 @@ export default function TicketScreen() {
       ...(!sample && canSendAll(stub)
         ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
         : []),
-      ...(sample || (!hasPages && !(isStay && stub.stay?.notes)) ? [] : [{ label: isStay ? 'Re-read check-in details' : 'Re-read ticket details', run: reread }]),
-      ...(sample || !hasPages
-        ? []
-        : [
-            {
-              label: 'Send what Stash read',
-              run: () =>
-                readStubText(stub)
-                  .then((text) => Share.share({ message: `Stash read this from "${stub.title}":\n\n${text}` }))
-                  .catch((e) => Alert.alert("Couldn't read the ticket", String(e?.message ?? e))),
-            },
-          ]),
-      {
-        label: stub.cover ? 'Change cover photo' : 'Choose cover photo',
-        run: async () => {
-          try {
-            const uri = await pickCoverPhoto();
-            if (!uri) return;
-            await setCover(stub.id, uri);
-            showToast('Cover photo set');
-          } catch (e) {
-            Alert.alert("Couldn't use that photo", e instanceof Error ? e.message : String(e));
-          }
-        },
-      },
-      ...(stub.cover ? [{ label: 'Remove cover photo', run: () => setCover(stub.id, null) }] : []),
       { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
       {
         label: 'Delete',
@@ -163,16 +134,6 @@ export default function TicketScreen() {
       ]);
     }
   };
-
-  async function reread() {
-    try {
-      const found = await rereadStub(stub!);
-      const n = await applyReread(stub!.id, found);
-      showToast(n ? `Found ${n} detail${n === 1 ? '' : 's'}` : 'No extra details on this ticket');
-    } catch (e) {
-      Alert.alert("Couldn't read the ticket", e instanceof Error ? e.message : String(e));
-    }
-  }
 
   const toggleUsed = async () => {
     const used = !stub.usedAt;
