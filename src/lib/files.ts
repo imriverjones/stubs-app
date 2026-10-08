@@ -42,3 +42,18 @@ export function titleFromFileName(name: string | null | undefined): string {
   const unsent = (cleaned || words).replace(/\s*[–-]\s*ticket\s*\d+$/i, '').trim();
   return unsent.slice(0, 60);
 }
+
+/**
+ * iOS moves the app to a new folder on every update/reinstall, so a saved full path
+ * like file:///…/Application/<OLD-ID>/Documents/stubs/abc/source-0.pdf goes stale.
+ * Re-point anything inside our Documents/stubs folder at the current location.
+ */
+export function rebase(uri: string): string;
+export function rebase(uri: string | undefined): string | undefined;
+export function rebase(uri: string | undefined): string | undefined {
+  if (!uri) return uri;
+  const m = uri.match(/\/Documents\/(stubs\/.+)$/);
+  if (!m) return uri;
+  const base = Paths.document.uri.endsWith('/') ? Paths.document.uri : `${Paths.document.uri}/`;
+  return `${base}${m[1]}`;
+}

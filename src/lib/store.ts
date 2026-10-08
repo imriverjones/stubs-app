@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { addDays, dayKey, toDate } from './dates';
-import { dbFile, deleteStubFiles } from './files';
+import { dbFile, deleteStubFiles, rebase } from './files';
 import type { Extracted } from './extract';
 import { cancelReminder, ensurePermission, reminderStatus, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
@@ -64,8 +64,25 @@ export async function load() {
   } catch (e) {
     console.warn('Could not read stubs', e);
   }
-  set({ loaded: true, stubs: sortStubs(stubs), settings, seenShots, lockCard });
+  const fixed = stubs.map(rebaseStub);
+  const moved = JSON.stringify(fixed) !== JSON.stringify(stubs);
+  set({ loaded: true, stubs: sortStubs(fixed), settings, seenShots, lockCard });
+  if (moved) persist();
   cleanUp();
+}
+
+/** Point a stub's saved files at the app's current folder (see rebase). */
+function rebaseStub(s: Stub): Stub {
+  return {
+    ...s,
+    sourceUri: rebase(s.sourceUri),
+    pageUris: (s.pageUris ?? []).map((u) => rebase(u)),
+    tickets: s.tickets.map((t) => ({
+      ...t,
+      pageUri: rebase(t.pageUri),
+      code: t.code ? { ...t.code, cropUri: rebase(t.code.cropUri) } : t.code,
+    })),
+  };
 }
 
 function sortStubs(stubs: Stub[]) {
