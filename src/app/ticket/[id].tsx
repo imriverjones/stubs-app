@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -19,7 +20,7 @@ import { Perforated } from '../../components/Perforated';
 import { RoundButton } from '../../components/RoundButton';
 import { showToast } from '../../components/Toast';
 import { fmt, relativeDay } from '../../lib/dates';
-import { rereadStub } from '../../lib/importer';
+import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
 import { applyReread, removeStub, setUsed, useStore } from '../../lib/store';
 import { KINDS, type Stub } from '../../lib/types';
@@ -64,6 +65,17 @@ export default function TicketScreen() {
         ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
         : []),
       ...(sample ? [] : [{ label: 'Re-read ticket details', run: reread }]),
+      ...(sample
+        ? []
+        : [
+            {
+              label: 'Send what Stash read',
+              run: () =>
+                readStubText(stub)
+                  .then((text) => Share.share({ message: `Stash read this from "${stub.title}":\n\n${text}` }))
+                  .catch((e) => Alert.alert("Couldn't read the ticket", String(e?.message ?? e))),
+            },
+          ]),
       { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
       {
         label: 'Delete',
