@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { showToast } from '../components/Toast';
 import { captureRef } from 'react-native-view-shot';
 import { WebView } from 'react-native-webview';
 import { Icon } from '../components/Icon';
@@ -88,7 +89,16 @@ export default function WebImport() {
       <View ref={frame} collapsable={false} style={styles.frame}>
         <WebView
           source={{ uri: url }}
-          originWhitelist={['https://*', 'http://*']}
+          originWhitelist={['*']}
+          // Booking sites try to bounce you into their own app ("gyg://…", App Store links).
+          // Keep everything inside Stash so you can sign in and capture the ticket here.
+          onShouldStartLoadWithRequest={(req) => {
+            const u = req.url.toLowerCase();
+            if (/^(https?|about|data|blob):/.test(u) && !/^https?:\/\/(apps\.apple\.com|itunes\.apple\.com)\//.test(u)) return true;
+            showToast('Kept you in Stash: that page tried to open another app.');
+            return false;
+          }}
+          setSupportMultipleWindows={false}
           sharedCookiesEnabled
           allowsBackForwardNavigationGestures
           onLoadStart={() => setLoading(true)}
