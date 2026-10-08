@@ -306,9 +306,10 @@ export function setSettings(patch: Partial<Settings>) {
  * Pass ask=true to show the iOS prompt first if it hasn't been shown yet.
  */
 export async function ensureReminders(ask = false) {
+  // Ask first (even with no tickets yet: the button in Settings and the intro must work on a fresh install).
+  if (ask ? !(await ensurePermission()) : (await reminderStatus()) !== 'on') return;
   const upcoming = state.stubs.filter((s) => s.date >= dayKey() && !s.usedAt);
   if (!upcoming.length) return;
-  if (ask ? !(await ensurePermission()) : (await reminderStatus()) !== 'on') return;
   let changed = false;
   const next = await Promise.all(
     state.stubs.map(async (s) => {
