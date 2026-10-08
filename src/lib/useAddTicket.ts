@@ -22,6 +22,26 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     }
   }
 
+  function askForLink() {
+    Alert.prompt(
+      'Ticket link',
+      'Paste the link to your ticket page (GetYourGuide, Viator, a venue…). You can sign in on the next screen, then tap Capture when the QR code shows.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open',
+          onPress: (value?: string) => {
+            const url = value?.trim();
+            if (url) router.push({ pathname: '/web', params: { url: /^https?:\/\//i.test(url) ? url : `https://${url}` } });
+          },
+        },
+      ],
+      'plain-text',
+      '',
+      'url',
+    );
+  }
+
   const screens = () => run(pickPhotos, true);
   const photos = () => run(pickPhotos);
 
@@ -53,10 +73,13 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   function open() {
     if (mode === 'stays') return openStays();
     const ios = Platform.OS === 'ios';
-    const options = ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
+    const options = ios
+      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
+      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
     const handle = (i: number) => {
       if (i === 0) run(pickPhotos);
       if (i === 1) run(pickDocument);
+      if (ios && i === 2) askForLink();
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -64,7 +87,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
           options,
           cancelButtonIndex: options.length - 1,
           title: 'Add a ticket',
-          message: 'Tip: in Mail, tap the ticket, then Share → Stash.',
+          message: 'Tip: in Mail, Safari or a booking app, tap Share → Stash.',
         },
         handle,
       );
@@ -79,5 +102,5 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
 
   const pdf = () => run(pickDocument);
 
-  return { open, screens, photos, pdf, busy };
+  return { open, screens, photos, pdf, link: askForLink, busy };
 }
