@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -207,7 +208,13 @@ function NextCard({ stub }: { stub: Stub }) {
         ground={colors.ground}
         rule={colors.nightRule}
         top={
-          <View style={styles.todayTop}>
+          <View style={[styles.todayTop, stub.cover ? styles.todayTopCover : null]}>
+            {stub.cover && (
+              <>
+                <Image source={{ uri: stub.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+                <View style={[StyleSheet.absoluteFill, styles.coverShade]} />
+              </>
+            )}
             <View style={styles.rowBetween}>
               <View style={styles.tag}>
                 <Text style={styles.tagText}>{kindLabel(stub)}</Text>
@@ -340,6 +347,8 @@ const styles = StyleSheet.create({
   todayBottom: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
   tag: { backgroundColor: colors.accent, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   tagText: { fontFamily: fonts.monoBold, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.ink },
+  todayTopCover: { minHeight: 200, justifyContent: 'space-between' },
+  coverShade: { backgroundColor: 'rgba(17,17,17,0.5)' },
   todayTitle: { fontFamily: fonts.display, fontSize: 40, textTransform: 'uppercase', color: colors.nightText },
   todaySub: { fontFamily: fonts.mono, fontSize: 13, color: '#D6D6CF' },
   todayMeta: { fontFamily: fonts.mono, fontSize: 12, color: colors.nightSoft },

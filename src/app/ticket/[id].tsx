@@ -22,7 +22,8 @@ import { showToast } from '../../components/Toast';
 import { fmt, relativeDay } from '../../lib/dates';
 import { readStubText, rereadStub } from '../../lib/importer';
 import { canSendAll, sendAll, sendTicket } from '../../lib/send';
-import { applyReread, removeStub, setUsed, useStore } from '../../lib/store';
+import { pickCoverPhoto } from '../../lib/pickers';
+import { applyReread, removeStub, setCover, setUsed, useStore } from '../../lib/store';
 import { KINDS, type Stub } from '../../lib/types';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
 import { colors, fonts } from '../../theme';
@@ -76,6 +77,20 @@ export default function TicketScreen() {
                   .catch((e) => Alert.alert("Couldn't read the ticket", String(e?.message ?? e))),
             },
           ]),
+      {
+        label: stub.cover ? 'Change cover photo' : 'Choose cover photo',
+        run: async () => {
+          try {
+            const uri = await pickCoverPhoto();
+            if (!uri) return;
+            await setCover(stub.id, uri);
+            showToast('Cover photo set');
+          } catch (e) {
+            Alert.alert("Couldn't use that photo", e instanceof Error ? e.message : String(e));
+          }
+        },
+      },
+      ...(stub.cover ? [{ label: 'Remove cover photo', run: () => setCover(stub.id, null) }] : []),
       { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
       {
         label: 'Delete',

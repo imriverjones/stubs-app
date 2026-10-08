@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { addDays, dayKey, toDate } from './dates';
-import { dbFile, deleteStubFiles, newId, rebase } from './files';
+import { File } from 'expo-file-system';
+import { dbFile, deleteStubFiles, newId, rebase, stubDir } from './files';
 import type { Extracted } from './extract';
 import { cancelReminder, ensurePermission, reminderStatus, scheduleReminder } from './reminders';
 import { DEFAULT_SETTINGS, type Settings, type Stub } from './types';
@@ -76,6 +77,7 @@ function rebaseStub(s: Stub): Stub {
   return {
     ...s,
     sourceUri: rebase(s.sourceUri),
+    cover: rebase(s.cover),
     pageUris: (s.pageUris ?? []).map((u) => rebase(u)),
     tickets: s.tickets.map((t) => ({
       ...t,
@@ -332,4 +334,27 @@ export function addSampleTicket(): Stub {
   set({ stubs: sortStubs([...state.stubs, stub]) });
   persist();
   return stub;
+}
+
+/** Set (copying the photo into the ticket's folder) or clear a ticket's cover photo. */
+export async function setCover(id: string, photoUri: string | null) {
+  const current = state.stubs.find((s) => s.id === id);
+  if (!current) return;
+  let cover: string | undefined;
+  if (photoUri) {
+    const ext = photoUri.match(/\.(jpe?g|png|heic|webp)$/i)?.[1]?.toLowerCase() ?? 'jpg';
+    // New name each time so the image cache shows the new photo straight away.
+    const dest = new File(stubDir(id), `cover-${Date.now()}.${ext}`);
+    await new File(photoUri).copy(dest);
+    cover = dest.uri;
+  }
+  if (current.cover) {
+    try {
+      const old = new File(current.cover);
+      if (old.exists) old.delete();
+    } catch {}
+  }
+  const latest = state.stubs.find((s) => s.id === id) ?? current;
+  set({ stubs: state.stubs.map((s) => (s.id === id ? { ...latest, cover } : s)) });
+  persist();
 }

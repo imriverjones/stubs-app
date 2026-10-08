@@ -24,3 +24,9 @@ export async function pickDocument(): Promise<IncomingFile[]> {
   if (result.canceled) return [];
   return result.assets.map((a) => ({ uri: a.uri, name: a.name, mimeType: a.mimeType }));
 }
+
+/** One photo for a ticket's cover. */
+export async function pickCoverPhoto(): Promise<string | null> {
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+  return result.canceled ? null : (result.assets[0]?.uri ?? null);
+}
