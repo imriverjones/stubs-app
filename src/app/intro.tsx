@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../components/CodeView';
 import { Icon } from '../components/Icon';
+import { Logo } from '../components/Logo';
 import { Perforated } from '../components/Perforated';
 import { askPersistentBanners } from '../lib/persistent';
 import { reminderStatus } from '../lib/reminders';
@@ -230,7 +231,10 @@ export default function Intro() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.bar}>
-        <Text style={styles.brand}>Stash</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Logo size={36} />
+          <Text style={styles.brand}>Stash</Text>
+        </View>
         {!last && (
           <Pressable accessibilityRole="button" hitSlop={12} onPress={finish}>
             <Text style={styles.skip}>Skip</Text>

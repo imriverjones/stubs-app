@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useW
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
+import { Logo } from './Logo';
 import { NotifyPrompt } from './NotifyPrompt';
 import { Perforated } from './Perforated';
 import { ScreenshotCards } from './ScreenshotCards';
@@ -91,9 +92,12 @@ export function Home({ mode }: { mode: HomeMode }) {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: 40 }]}
       >
         <View style={styles.header}>
-          <View>
-            <Text style={label}>{fmt.short(today)}</Text>
-            <Text style={styles.wordmark}>{isStays ? 'Stays' : 'Stash'}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={58} />
+            <View>
+              <Text style={label}>{fmt.short(today)}</Text>
+              <Text style={styles.wordmark}>{isStays ? 'Stays' : 'Stash'}</Text>
+            </View>
           </View>
           <View style={styles.headerButtons}>
             <RoundButton label="Settings" color="transparent" onPress={() => router.push('/settings')}>
@@ -433,6 +437,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, gap: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   wordmark: { fontFamily: fonts.display, fontSize: 48, textTransform: 'uppercase', color: colors.ink },
   section: { gap: 10 },
   carousel: { marginHorizontal: -20 },
