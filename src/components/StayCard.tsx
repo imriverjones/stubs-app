@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, Linking, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { dayKey, fmt, relativeDay } from '../lib/dates';
+import { copyText } from '../lib/native';
 import { ticketAccent } from '../lib/palette';
 import type { Stub } from '../lib/types';
 import { colors, fonts } from '../theme';
 import { Perforated } from './Perforated';
+import { showToast } from './Toast';
 
 /** "Today · Fri 16 Oct · 15:00" */
 function whenText(day: string | undefined, time: string | undefined) {
@@ -33,8 +35,8 @@ export function openDirections(address: string) {
   }
 }
 
-/** Opens the share sheet, which has Copy at the top. */
-const shareText = (text: string) => Share.share({ message: text });
+/** One-tap copy on the newer build; the share sheet (which has Copy) before that. */
+const copy = (text: string) => copyText(text).then((how) => how === 'copied' && showToast('Copied'));
 
 function Button({ label, onPress, primary }: { label: string; onPress: () => void; primary?: boolean }) {
   return (
@@ -107,7 +109,7 @@ export function StayCard({ stub }: { stub: Stub }) {
               </Text>
               <View style={styles.row}>
                 <Button primary label="Directions" onPress={() => openDirections(st.address!)} />
-                <Button label="Copy" onPress={() => shareText(st.address!)} />
+                <Button label="Copy" onPress={() => copy(st.address!)} />
               </View>
             </Block>
           ) : null}
@@ -135,7 +137,7 @@ export function StayCard({ stub }: { stub: Stub }) {
                   <Text style={styles.password} selectable>
                     {st.wifiPassword}
                   </Text>
-                  <Button label="Copy password" onPress={() => shareText(st.wifiPassword!)} />
+                  <Button label="Copy password" onPress={() => copy(st.wifiPassword!)} />
                 </View>
               ) : null}
             </Block>

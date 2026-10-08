@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -26,6 +28,7 @@ import { canSendAll, sendAll, sendTicket } from '../../lib/send';
 import { groupStubs, isArchived, removeStub, setUsed, useStore } from '../../lib/store';
 import { ticketAccent } from '../../lib/palette';
 import { KINDS, type Stub } from '../../lib/types';
+import { haptic } from '../../lib/native';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
 import { colors, fonts } from '../../theme';
 
@@ -56,6 +59,8 @@ export default function TicketScreen() {
   const page = pages[at]?.index ?? 0;
   const stubIds = useMemo(() => [...new Set(pages.map((p) => p.stub.id))], [pages]);
   const positioned = useRef(false);
+  const [tear] = useState(() => new Animated.Value(0));
+  const tearing = useRef(false);
   useKeepAwake();
   useMaxBrightness(stub?.kind !== 'stay');
 
@@ -137,6 +142,15 @@ export default function TicketScreen() {
 
   const toggleUsed = async () => {
     const used = !stub.usedAt;
+    if (used && stub.kind !== 'stay' && !tearing.current) {
+      // Tear the stub off along the dotted line, then file it in Archive.
+      tearing.current = true;
+      haptic('tear');
+      await new Promise<void>((done) =>
+        Animated.timing(tear, { toValue: 1, duration: 700, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => done()),
+      );
+      haptic('success');
+    }
     const undo = await setUsed(stub.id, used);
     if (used) {
       router.back();
@@ -186,14 +200,18 @@ export default function TicketScreen() {
           positioned.current = true;
           pager.current?.scrollTo({ x: width * start, animated: false });
         }}
-        onMomentumScrollEnd={(e) => setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))}
+        onMomentumScrollEnd={(e) => {
+          const next = Math.round(e.nativeEvent.contentOffset.x / width);
+          if (next !== at) haptic('tap');
+          setCurrent(next);
+        }}
       >
-        {pages.map((p) => (
+        {pages.map((p, i) => (
           <View key={`${p.stub.id}-${p.index}`} style={{ width, paddingHorizontal: H_PAD }}>
             {p.stub.kind === 'stay' ? (
               <StayCard stub={p.stub} />
             ) : (
-              <TicketCard stub={p.stub} index={p.index} codeSize={codeSize}>
+              <TicketCard stub={p.stub} index={p.index} codeSize={codeSize} tear={i === at ? tear : undefined}>
                 {p.stub.tickets[p.index] ? <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} /> : null}
               </TicketCard>
             )}
@@ -269,7 +287,18 @@ function titleSize(title: string) {
   return { fontSize: 23 };
 }
 
-function TicketCard({ stub, index, children }: { stub: Stub; index: number; codeSize: number; children: React.ReactNode }) {
+function TicketCard({
+  stub,
+  index,
+  children,
+  tear,
+}: {
+  stub: Stub;
+  index: number;
+  codeSize: number;
+  children: React.ReactNode;
+  tear?: Animated.Value;
+}) {
   const holoAll = useStore((s) => s.settings.holoAll);
   const kind = KINDS.find((k) => k.id === stub.kind)?.label ?? 'Ticket';
   const count = stub.tickets.length;
@@ -280,6 +309,7 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
       radius={22}
       notch={26}
       rule="#CFCFC6"
+      tear={tear}
       top={
         <View style={styles.cardTop}>
           {(stub.holo || holoAll) && <Holo intensity={0.32} />}
