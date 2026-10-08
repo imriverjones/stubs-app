@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Image } from 'expo-image';
 import { Toggle } from '../components/Toggle';
 import * as Updates from 'expo-updates';
 import { router, useFocusEffect } from 'expo-router';
@@ -12,7 +13,8 @@ import { showToast } from '../components/Toast';
 import { enableScreenshotCheck, screenshotsSupported } from '../lib/screenshots';
 import { reminderStatus, type ReminderStatus } from '../lib/reminders';
 import { askPersistentBanners } from '../lib/persistent';
-import { ensureReminders, setSettings, useStore } from '../lib/store';
+import { pickCoverPhoto } from '../lib/pickers';
+import { ensureReminders, setSettings, setThemePhoto, useStore } from '../lib/store';
 import { colors, fonts, label } from '../theme';
 
 const KEEP = [
@@ -35,6 +37,8 @@ export default function Settings() {
   );
   const lockScreen = useStore((s) => s.settings.lockScreen);
   const accent = useStore((s) => s.settings.accent);
+  const holoAll = useStore((s) => s.settings.holoAll);
+  const themePhoto = useStore((s) => s.settings.themePhoto);
   const shots = useStore((s) => s.settings.screenshots);
   const insets = useSafeAreaInsets();
 
@@ -71,7 +75,8 @@ export default function Settings() {
       </View>
 
       <View style={styles.block}>
-        <Text style={label}>App colour</Text>
+        <Text style={label}>Appearance</Text>
+        <Text style={styles.rowText}>App colour</Text>
         <Swatches
           value={accent}
           onChange={(id) => {
@@ -81,7 +86,42 @@ export default function Settings() {
             Updates.reloadAsync().catch(() => showToast('Close and reopen Stash to see the new colour.'));
           }}
         />
-        <Text style={styles.note}>Buttons and ticket screens. Stash restarts to apply it. Each ticket can have its own colour too: ⋯ → Edit details.</Text>
+        <Text style={styles.note}>Buttons and ticket screens. Stash restarts to apply it.</Text>
+        <View style={styles.row}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowText}>Holographic tickets</Text>
+            <Text style={styles.note}>A foil shimmer on every ticket.</Text>
+          </View>
+          <Toggle value={!!holoAll} onValueChange={(v) => setSettings({ holoAll: v })} accessibilityLabel="Holographic tickets" />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={async () => {
+            try {
+              const uri = await pickCoverPhoto();
+              if (uri) {
+                await setThemePhoto(uri);
+                showToast('Background photo set for all tickets');
+              }
+            } catch (e) {
+              showToast(e instanceof Error ? e.message : "Couldn't use that photo");
+            }
+          }}
+          style={styles.row}
+        >
+          {themePhoto ? <Image source={{ uri: themePhoto }} style={styles.thumb} contentFit="cover" /> : null}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rowText}>{themePhoto ? 'Change background photo' : 'Background photo for all tickets'}</Text>
+            <Text style={styles.note}>Shows behind every ticket card without its own photo.</Text>
+          </View>
+          <Icon name="photo" size={18} color={colors.ink} stroke={2.2} />
+        </Pressable>
+        {themePhoto ? (
+          <Pressable accessibilityRole="button" onPress={() => setThemePhoto(null)} style={styles.row}>
+            <Text style={styles.rowText}>Remove background photo</Text>
+          </Pressable>
+        ) : null}
+        <Text style={styles.note}>For one ticket only: open it, then ⋯ → Edit details (colour, holographic) or ⋯ → Choose cover photo.</Text>
       </View>
 
       <View style={styles.block}>
@@ -203,5 +243,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink },
+  thumb: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
   footer: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft, textAlign: 'center' },
 });

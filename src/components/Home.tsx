@@ -259,6 +259,10 @@ function todayTitleSize(title: string) {
 }
 
 function NextCard({ stub }: { stub: Stub }) {
+  const themePhoto = useStore((s) => s.settings.themePhoto);
+  const holoAll = useStore((s) => s.settings.holoAll);
+  // Its own photo first, then the background photo set for all tickets.
+  const cover = stub.cover ?? themePhoto;
   const when = relativeDay(stub.date);
   return (
     <Pressable
@@ -272,14 +276,14 @@ function NextCard({ stub }: { stub: Stub }) {
         ground={colors.ground}
         rule={colors.nightRule}
         top={
-          <View style={[styles.todayTop, stub.cover ? styles.todayTopCover : null]}>
-            {stub.cover && (
+          <View style={[styles.todayTop, cover ? styles.todayTopCover : null]}>
+            {cover && (
               <>
-                <Image source={{ uri: stub.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+                <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
                 <View style={[StyleSheet.absoluteFill, styles.coverShade]} />
               </>
             )}
-            {stub.holo && <Holo />}
+            {(stub.holo || holoAll) && <Holo />}
             <View style={styles.rowBetween}>
               <View style={[styles.tag, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}>
                 <Text style={styles.tagText}>{kindLabel(stub)}</Text>

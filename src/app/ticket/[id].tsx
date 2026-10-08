@@ -309,6 +309,7 @@ function titleSize(title: string) {
 }
 
 function TicketCard({ stub, index, children }: { stub: Stub; index: number; codeSize: number; children: React.ReactNode }) {
+  const holoAll = useStore((s) => s.settings.holoAll);
   const kind = KINDS.find((k) => k.id === stub.kind)?.label ?? 'Ticket';
   const count = stub.tickets.length;
   return (
@@ -320,7 +321,7 @@ function TicketCard({ stub, index, children }: { stub: Stub; index: number; code
       rule="#CFCFC6"
       top={
         <View style={styles.cardTop}>
-          {stub.holo && <Holo intensity={0.32} />}
+          {(stub.holo || holoAll) && <Holo intensity={0.32} />}
           <Text style={styles.cardLabel}>
             {kind}
             {count > 1 ? ` · ${index + 1} of ${count}` : ''}

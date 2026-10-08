@@ -97,6 +97,10 @@ export type Settings = {
   screenshots?: 'on' | 'off';
   /** Pin today's ticket to the lock screen as a Live Activity. */
   lockScreen: boolean;
+  /** Holographic finish on every ticket. */
+  holoAll?: boolean;
+  /** Background photo for every ticket card that has no cover of its own. */
+  themePhoto?: string;
   /** App colour (see palette.ts). Applied on restart. */
   accent?: import('./palette').ColorId;
   /** The how-it-works slides have been shown. */
