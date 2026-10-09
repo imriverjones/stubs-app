@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CodeView } from '../../components/CodeView';
+import { CompanyMark } from '../../components/CompanyMark';
 import { Holo } from '../../components/Holo';
 import { StayCard } from '../../components/StayCard';
 import { Icon } from '../../components/Icon';
@@ -326,11 +327,20 @@ function TicketCard({
       top={
         <View style={styles.cardTop}>
           {(stub.holo || holoAll) && <Holo intensity={0.32} />}
-          <Text style={styles.cardLabel}>
-            {kind}
-            {company ? ` · ${company}` : ''}
-            {count > 1 ? ` · ${index + 1} of ${count}` : ''}
-          </Text>
+          {company ? (
+            <View style={styles.markRow}>
+              <CompanyMark name={company} accent={ticketAccent(stub.color, colors.accent)} />
+              <Text style={styles.cardLabel}>
+                {kind}
+                {count > 1 ? ` · ${index + 1} of ${count}` : ''}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.cardLabel}>
+              {kind}
+              {count > 1 ? ` · ${index + 1} of ${count}` : ''}
+            </Text>
+          )}
           <Text style={[styles.cardTitle, titleSize(stub.title)]}>{stub.title}</Text>
           <View style={styles.grid}>
             <Field label="Date" value={`${relativeDay(stub.date) === 'Today' ? 'Today · ' : ''}${fmt.short(stub.date)}`} />
@@ -364,6 +374,7 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 const styles = StyleSheet.create({
+  markRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   screen: { flex: 1, backgroundColor: colors.accent },
   scrollBody: { flexGrow: 1, gap: 16 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

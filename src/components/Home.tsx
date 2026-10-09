@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, useW
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from './Icon';
+import { CompanyMark, companyOf } from './CompanyMark';
 import { Holo } from './Holo';
 import { Logo } from './Logo';
 import { ticketAccent, ticketDeep } from '../lib/palette';
@@ -290,7 +291,11 @@ function NextCard({ stub }: { stub: Stub }) {
               <View style={[styles.tag, { backgroundColor: ticketAccent(stub.color, colors.accent) }]}>
                 <Text style={styles.tagText}>{kindLabel(stub)}</Text>
               </View>
-              <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
+              {companyOf(stub) ? (
+                <CompanyMark small onDark name={companyOf(stub)!} accent={ticketAccent(stub.color, colors.accent)} />
+              ) : (
+                <Text style={styles.todayMeta}>{ticketCount(stub)}</Text>
+              )}
             </View>
             {/* Same height for every card: long names shrink to fit two lines, details stay on one. */}
             <View style={styles.todayTitleBox}>
@@ -321,7 +326,7 @@ function StubRow({ stub, faded, countdown }: { stub: Stub; faded?: boolean; coun
   const days = daysBetween(dayKey(), stub.date);
   const meta = countdown
     ? [fmt.short(stub.date), stub.time, kindLabel(stub), stub.tickets.length > 1 ? ticketCount(stub) : ''].filter(Boolean).join(' · ')
-    : [kindLabel(stub), stub.time, stub.kind === 'stay' ? ticketCount(stub) || relativeDay(stub.date) : stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
+    : [companyOf(stub) ?? kindLabel(stub), stub.time, stub.kind === 'stay' ? ticketCount(stub) || relativeDay(stub.date) : stub.tickets.length > 1 ? ticketCount(stub) : relativeDay(stub.date)]
         .filter(Boolean)
         .join(' · ');
   return (
@@ -461,7 +466,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 2 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.rule },
   dotOn: { width: 20, backgroundColor: colors.ink },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
 
   todayTop: { padding: 20, paddingBottom: 18, gap: 10, height: 236, justifyContent: 'space-between' },
   todayTitleBox: { flex: 1, justifyContent: 'center' },

@@ -19,7 +19,7 @@ import { colors, fonts, label } from '../theme';
 import { CodeView } from './CodeView';
 import { Perforated } from './Perforated';
 
-export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay'>;
+export type StubFields = Pick<Stub, 'title' | 'kind' | 'date' | 'time' | 'stay' | 'details'>;
 
 const STAY_FIELDS: { key: keyof Stay; label: string; placeholder: string; multiline?: boolean; mono?: boolean; keyboard?: 'phone-pad' }[] = [
   { key: 'address', label: 'Address', placeholder: 'Street, town, postcode', multiline: true },
@@ -53,6 +53,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
   const [date, setDate] = useState(stub.date);
   const [time, setTime] = useState<string | undefined>(stub.time);
   const [stay, setStay] = useState<Stay>(stub.stay ?? {});
+  const [company, setCompany] = useState(stub.details?.find((d) => d.label === 'Company')?.value ?? '');
   const isStay = kind === 'stay';
   const setStayField = (key: keyof Stay, value: string | undefined) => setStay((s) => ({ ...s, [key]: value || undefined }));
   const onOutDate = (_: DateTimePickerEvent, d?: Date) => d && setStayField('checkOutDate', dayKey(d));
@@ -60,7 +61,13 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
   const first = stub.tickets[0];
   const count = stub.tickets.length;
   // Shared details plus the first ticket's own (seat etc.); with several tickets, note that seats vary.
-  const readDetails = [...(first?.details ?? []), ...(stub.details ?? [])];
+  const readDetails = [...(first?.details ?? []), ...(stub.details ?? [])].filter((d) => d.label !== 'Company');
+  // The company is its own field: it becomes the name badge on the ticket.
+  const details = () => {
+    const rest = (stub.details ?? []).filter((d) => d.label !== 'Company');
+    const name = company.trim();
+    return name ? [{ label: 'Company', value: name.slice(0, 40) }, ...rest] : rest.length ? rest : undefined;
+  };
   const filled = stub.autofill ?? [];
 
   const onDate = (_: DateTimePickerEvent, d?: Date) => d && setDate(dayKey(d));
@@ -129,6 +136,25 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
                   <Text style={styles.detailValue}>{d.value}</Text>
                 </View>
               ))}
+            </View>
+          </View>
+        )}
+
+        {!isStay && (
+          <View style={styles.box}>
+            <View style={styles.inputRow}>
+              <Text style={styles.inputLabel}>Company · shown on the ticket</Text>
+              <TextInput
+                value={company}
+                onChangeText={setCompany}
+                placeholder="e.g. Ryanair, Ionian Lines"
+                placeholderTextColor="#A8A8A0"
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={40}
+                style={styles.input}
+                accessibilityLabel="Company"
+              />
             </View>
           </View>
         )}
@@ -302,7 +328,7 @@ export function StubForm({ heading, stub, saveLabel, onSave, onCancel }: Props) 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           accessibilityRole="button"
-          onPress={() => onSave({ title, kind, date, time, stay: isStay ? stay : stub.stay })}
+          onPress={() => onSave({ title, kind, date, time, stay: isStay ? stay : stub.stay, details: isStay ? stub.details : details() })}
           style={({ pressed }) => [styles.save, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.saveText}>{saveLabel}</Text>
