@@ -2,6 +2,7 @@ import ExpoModulesCore
 import PDFKit
 import UIKit
 import Vision
+import VisionKit
 
 /// Turns a ticket file (PDF or image) into page images plus every barcode found on them.
 /// Everything runs on-device: PDFKit renders the pages, Vision finds the codes.
@@ -49,7 +50,34 @@ public class StubsScannerModule: Module {
       }
       return pages
     }
+
+    /// Opens Apple's document camera (edge detection, straightening) for paper tickets.
+    /// Resolves with the scanned pages as JPEG file URIs, or [] if the person cancels.
+    AsyncFunction("scanPaperAsync") { (outDir: String, promise: Promise) in
+      guard let outUrl = Self.fileURL(from: outDir) else {
+        promise.reject("ERR_BAD_URI", "Bad folder: \(outDir)")
+        return
+      }
+      DispatchQueue.main.async {
+        guard VNDocumentCameraViewController.isSupported else {
+          promise.reject("ERR_UNSUPPORTED", "This iPhone can't scan documents.")
+          return
+        }
+        guard let presenter = self.appContext?.utilities?.currentViewController() else {
+          promise.reject("ERR_NO_VIEW", "Couldn't open the camera.")
+          return
+        }
+        let camera = VNDocumentCameraViewController()
+        let delegate = PaperScanDelegate(outUrl: outUrl, promise: promise) { [weak self] in self?.paperDelegate = nil }
+        self.paperDelegate = delegate
+        camera.delegate = delegate
+        presenter.present(camera, animated: true)
+      }
+    }
   }
+
+  /// Kept alive while the document camera is open.
+  var paperDelegate: PaperScanDelegate?
 
   // MARK: - Rendering
 
@@ -248,5 +276,53 @@ enum ScanError: Error, CustomStringConvertible {
     case .badUri(let uri): return "Not a file path: \(uri)"
     case .unreadable(let name): return "Couldn't open \(name)"
     }
+  }
+}
+
+
+/// Saves each scanned page and hands the file URIs back to JavaScript.
+final class PaperScanDelegate: NSObject, VNDocumentCameraViewControllerDelegate {
+  private let outUrl: URL
+  private let promise: Promise
+  private let done: () -> Void
+
+  init(outUrl: URL, promise: Promise, done: @escaping () -> Void) {
+    self.outUrl = outUrl
+    self.promise = promise
+    self.done = done
+  }
+
+  func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
+    var uris: [String] = []
+    do {
+      try FileManager.default.createDirectory(at: outUrl, withIntermediateDirectories: true)
+      for i in 0..<min(scan.pageCount, 10) {
+        let url = outUrl.appendingPathComponent("paper-\(UUID().uuidString).jpg")
+        if let data = scan.imageOfPage(at: i).jpegData(compressionQuality: 0.9) {
+          try data.write(to: url)
+          uris.append(url.absoluteString)
+        }
+      }
+    } catch {
+      controller.dismiss(animated: true)
+      promise.reject("ERR_SAVE", error.localizedDescription)
+      done()
+      return
+    }
+    controller.dismiss(animated: true)
+    promise.resolve(uris)
+    done()
+  }
+
+  func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
+    controller.dismiss(animated: true)
+    promise.resolve([String]())
+    done()
+  }
+
+  func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: Error) {
+    controller.dismiss(animated: true)
+    promise.reject("ERR_SCAN", error.localizedDescription)
+    done()
   }
 }

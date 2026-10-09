@@ -80,7 +80,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Stash uses your photos so you can add ticket screenshots, and to spot new screenshots that contain a ticket code. Nothing leaves your phone.",
-          "cameraPermission": false,
+          "cameraPermission": "Stash uses the camera to scan paper tickets. Photos stay on your phone.",
           "microphonePermission": false
         }
       ],

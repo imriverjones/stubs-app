@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { Directory, Paths } from 'expo-file-system';
+import { isPaperScanAvailable, scanPaperAsync } from '../../modules/stubs-scanner';
 import { importFiles, type IncomingFile } from './importer';
 import { pickDocument, pickPhotos } from './pickers';
 
@@ -42,6 +44,15 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     );
   }
 
+  /** Paper ticket: Apple's document camera, then the usual reading. */
+  const paper = () =>
+    run(async () => {
+      const dir = new Directory(Paths.cache, 'paper');
+      dir.create({ intermediates: true, idempotent: true });
+      const uris = await scanPaperAsync(dir.uri);
+      return uris.map((uri, i) => ({ uri, name: `Paper ticket ${i + 1}.jpg`, mimeType: 'image/jpeg' }));
+    });
+
   const screens = () => run(pickPhotos, true);
   const photos = () => run(pickPhotos);
 
@@ -63,9 +74,8 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
       );
     } else {
       Alert.alert('Add a stay', undefined, [
-        { text: options[0], onPress: () => handle(0) },
-        { text: options[1], onPress: () => handle(1) },
-        { text: 'Cancel', style: 'cancel' },
+        ...options.slice(0, -1).map((text, i) => ({ text, onPress: () => handle(i) })),
+        { text: 'Cancel', style: 'cancel' as const },
       ]);
     }
   }
@@ -73,13 +83,19 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   function open() {
     if (mode === 'stays') return openStays();
     const ios = Platform.OS === 'ios';
-    const options = ios
-      ? ['Screenshot from Photos', 'PDF from Files', 'Ticket link', 'Cancel']
-      : ['Screenshot from Photos', 'PDF from Files', 'Cancel'];
+    const options = [
+      ...(isPaperScanAvailable ? ['Scan a paper ticket'] : []),
+      'Screenshot from Photos',
+      'PDF from Files',
+      ...(ios ? ['Ticket link'] : []),
+      'Cancel',
+    ];
     const handle = (i: number) => {
-      if (i === 0) run(pickPhotos);
-      if (i === 1) run(pickDocument);
-      if (ios && i === 2) askForLink();
+      const choice = options[i];
+      if (choice === 'Scan a paper ticket') paper();
+      if (choice === 'Screenshot from Photos') run(pickPhotos);
+      if (choice === 'PDF from Files') run(pickDocument);
+      if (choice === 'Ticket link') askForLink();
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(
@@ -93,14 +109,13 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
       );
     } else {
       Alert.alert('Add a ticket', undefined, [
-        { text: options[0], onPress: () => handle(0) },
-        { text: options[1], onPress: () => handle(1) },
-        { text: 'Cancel', style: 'cancel' },
+        ...options.slice(0, -1).map((text, i) => ({ text, onPress: () => handle(i) })),
+        { text: 'Cancel', style: 'cancel' as const },
       ]);
     }
   }
 
   const pdf = () => run(pickDocument);
 
-  return { open, screens, photos, pdf, link: askForLink, busy };
+  return { open, screens, photos, pdf, paper, canScanPaper: isPaperScanAvailable, link: askForLink, busy };
 }
