@@ -185,7 +185,7 @@ export function Home({ mode }: { mode: HomeMode }) {
                   ]
                 : [
                     { icon: 'doc' as const, text: 'From Mail', onPress: () => router.push('/mail-help') },
-                    { icon: 'photo' as const, text: 'Screenshot', onPress: add.photos },
+                    { icon: 'photo' as const, text: 'Photos', onPress: add.photos },
                     { icon: 'doc' as const, text: 'PDF from Files', onPress: add.pdf },
                   ]
               ).map((t) => (

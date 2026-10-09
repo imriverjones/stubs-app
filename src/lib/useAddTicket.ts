@@ -85,7 +85,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     const ios = Platform.OS === 'ios';
     const options = [
       ...(isPaperScanAvailable ? ['Scan a paper ticket'] : []),
-      'Screenshot from Photos',
+      'Photos',
       'PDF from Files',
       ...(ios ? ['Ticket link'] : []),
       'Cancel',
@@ -93,7 +93,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
     const handle = (i: number) => {
       const choice = options[i];
       if (choice === 'Scan a paper ticket') paper();
-      if (choice === 'Screenshot from Photos') run(pickPhotos);
+      if (choice === 'Photos') run(pickPhotos);
       if (choice === 'PDF from Files') run(pickDocument);
       if (choice === 'Ticket link') askForLink();
     };

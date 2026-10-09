@@ -93,7 +93,7 @@ export function MailArt() {
 function ShareArt() {
   const rows: { icon: 'doc' | 'photo'; text: string; from: string }[] = [
     { icon: 'doc', text: 'PDF ticket', from: 'Mail · Files' },
-    { icon: 'photo', text: 'Screenshot', from: 'Photos' },
+    { icon: 'photo', text: 'Photos', from: 'Screenshots' },
   ];
   return (
     <View style={art.share}>

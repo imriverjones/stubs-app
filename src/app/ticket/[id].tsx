@@ -285,6 +285,15 @@ export default function TicketScreen() {
           >
             <Text style={styles.outlineText}>Screenshots</Text>
           </Pressable>
+        ) : stub.tickets[page]?.pageUri ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityHint="Opens the ticket as it was sent to you"
+            onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id, page: stub.tickets[page].pageUri } })}
+            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+          >
+            <Text style={styles.outlineText}>See original</Text>
+          </Pressable>
         ) : null}
       </View>
     </ScrollView>
@@ -356,7 +365,7 @@ function TicketCard({
           {children}
           <View style={styles.bright}>
             <Icon name="sun" size={14} color={colors.inkSoft} stroke={2.2} />
-            <Text style={styles.brightText}>Brightness boosted · tap the code for the original</Text>
+            <Text style={styles.brightText}>Brightness boosted for scanning</Text>
           </View>
         </View>
       }
@@ -404,7 +413,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  bottomRow: { flexDirection: 'row', gap: 10, paddingHorizontal: H_PAD },
+  bottomRow: { flexDirection: 'row', gap: 12, paddingHorizontal: H_PAD, paddingTop: 8 },
   grow: { flex: 1 },
   solid: {
     height: 54,

@@ -43,7 +43,7 @@ export default function Paste() {
         />
         <Text style={styles.tip}>
           In Airbnb: Messages → press and hold the host’s message → Copy. For the check-in screens, screenshot them and add
-          them with + → Screenshot instead.
+          them with + → Photos instead.
         </Text>
         <Text style={styles.tip}>Stash picks out the address, times, door code, Wi-Fi and the host’s number. It stays on this phone.</Text>
       </ScrollView>

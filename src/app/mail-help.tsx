@@ -22,7 +22,7 @@ export default function MailHelp() {
         <MailArt />
         <Text style={styles.body}>
           Email has a “View tickets” button instead of a PDF? Open it, screenshot the ticket with the QR code showing, then
-          tap + → Screenshot.
+          tap + → Photos.
         </Text>
         <Text style={styles.body}>Works the same in Gmail and Outlook: open the attachment, then the Share button.</Text>
       </ScrollView>
