@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your ticket · Stash</title>
+<meta name="description" content="Add this ticket to Stash: on your lock screen on the day, with a reminder.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root { --ground:#EDEDE9; --paper:#F7F7F3; --ink:#111; --soft:#55554F; --faint:#8A8A82; --rule:#CFCFC8; --accent:#FF5A1F; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--accent); color:var(--ink); font-family:'Space Grotesk', system-ui, sans-serif; min-height:100vh; }
+  main { max-width:440px; margin:0 auto; padding:20px 16px 40px; }
+  .brand { display:flex; align-items:center; gap:8px; margin:4px 4px 16px; }
+  .brand b { font-family:Anton, Impact, sans-serif; font-size:26px; letter-spacing:.5px; text-transform:uppercase; font-weight:400; }
+  .ticket { background:var(--paper); border-radius:22px; position:relative; }
+  .top { padding:22px 22px 18px; }
+  .kicker { font:12px 'Space Mono', monospace; letter-spacing:1.6px; text-transform:uppercase; color:var(--soft); }
+  h1 { font-family:Anton, Impact, sans-serif; font-weight:400; font-size:40px; line-height:1.05; text-transform:uppercase; margin:8px 0 14px; overflow-wrap:anywhere; }
+  .grid { display:flex; flex-wrap:wrap; gap:10px 28px; }
+  .f span { display:block; font:10px 'Space Mono', monospace; letter-spacing:1.2px; text-transform:uppercase; color:var(--faint); }
+  .f b { font-size:15px; }
+  .info { margin-top:14px; padding:12px 14px; background:#fff; border-radius:12px; font-size:15px; line-height:1.4; }
+  .tear { position:relative; height:0; border-top:2px dashed var(--rule); margin:0 18px; }
+  .tear::before, .tear::after { content:''; position:absolute; top:-14px; width:26px; height:26px; border-radius:50%; background:var(--accent); }
+  .tear::before { left:-31px; } .tear::after { right:-31px; }
+  .codes { padding:20px; display:grid; gap:18px; justify-items:center; }
+  .code { text-align:center; }
+  .code canvas, .code img { width:220px; height:220px; image-rendering:pixelated; background:#fff; padding:10px; border-radius:10px; }
+  .code small { display:block; margin-top:6px; font:12px 'Space Mono', monospace; color:var(--soft); }
+  .actions { display:grid; gap:10px; margin-top:16px; }
+  .btn { display:flex; align-items:center; justify-content:center; height:56px; border-radius:999px; font-weight:700; font-size:17px; text-decoration:none; }
+  .primary { background:var(--ink); color:#fff; }
+  .secondary { background:transparent; color:var(--ink); border:2px solid var(--ink); }
+  .note { font:12px/1.5 'Space Mono', monospace; color:#2a1208; text-align:center; margin:14px 8px 0; }
+  .bad { background:var(--paper); border-radius:22px; padding:28px; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><g transform="translate(44 47) rotate(-10)"><rect x="-27" y="-36" width="54" height="72" rx="8" fill="#111"/></g><g transform="translate(54 51) rotate(6)"><rect x="-28" y="-37" width="56" height="74" rx="8" fill="#F7F7F3"/><text x="0" y="15" font-family="Anton, Impact, sans-serif" font-size="46" fill="#111" text-anchor="middle">S</text></g></svg>
+    <b>Stash</b>
+  </div>
+  <div id="app"></div>
+</main>
+<script>
+  // Where people without Stash can get it. Swap for the App Store link at launch.
+  var DOWNLOAD_URL = 'https://testflight.apple.com/';
+
+  function decode(data) {
+    try {
+      var s = data.replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      var bin = atob(s), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var t = JSON.parse(new TextDecoder().decode(bytes));
+      return t && t.v === 1 && t.t && t.d && t.x && t.x.length ? t : null;
+    } catch (e) { return null; }
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function niceDate(d) {
+    var dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'numeric' });
+  }
+  var KIND = { ferry:'Ferry', train:'Train', flight:'Flight', bus:'Bus', car:'Car', stay:'Stay', gig:'Gig', event:'Event', activity:'Activity', visa:'Visa', medical:'Medical', other:'Ticket' };
+
+  var data = location.hash.replace(/^#/, '');
+  var t = data ? decode(data) : null;
+  var app = document.getElementById('app');
+
+  if (!t) {
+    app.innerHTML = '<div class="bad"><h1>Hmm.</h1><p>This Add to Stash link looks incomplete. Ask the company that sent it for a new one.</p></div>';
+  } else {
+    document.title = t.t + ' · Stash';
+    var fields = '<div class="f"><span>Date</span><b>' + esc(niceDate(t.d)) + '</b></div>' +
+      (t.tm ? '<div class="f"><span>Time</span><b>' + esc(t.tm) + '</b></div>' : '') +
+      (t.sh || []).map(function (p) { return '<div class="f"><span>' + esc(p[0]) + '</span><b>' + esc(p[1]) + '</b></div>'; }).join('') +
+      (t.ref ? '<div class="f"><span>Booking ref</span><b style="font-family:Space Mono,monospace">' + esc(t.ref) + '</b></div>' : '');
+    var codes = t.x.map(function (x, i) {
+      var who = (x.s || []).map(function (p) { return esc(p[0]) + ' ' + esc(p[1]); }).join(' · ');
+      return '<div class="code" id="c' + i + '"></div><div class="code"><small>' + (t.x.length > 1 ? 'Ticket ' + (i + 1) + (who ? ' · ' : '') : '') + who + '</small></div>';
+    }).join('');
+    app.innerHTML =
+      '<div class="ticket"><div class="top">' +
+        '<div class="kicker">' + esc((KIND[t.k] || 'Ticket') + (t.c ? ' · ' + t.c : '') + (t.x.length > 1 ? ' · ' + t.x.length + ' tickets' : '')) + '</div>' +
+        '<h1>' + esc(t.t) + '</h1><div class="grid">' + fields + '</div>' +
+        (t.info ? '<div class="info">' + esc(t.info) + '</div>' : '') +
+      '</div><div class="tear"></div><div class="codes">' + codes + '</div></div>' +
+      '<div class="actions">' +
+        '<a class="btn primary" href="stubs://import?d=' + data + '">Add to Stash</a>' +
+        '<a class="btn secondary" href="' + DOWNLOAD_URL + '">Get Stash</a>' +
+      '</div>' +
+      '<p class="note">Stash puts this ticket on your lock screen on the day, with a reminder.<br>No app? Show the QR code above at the gate.</p>';
+    t.x.forEach(function (x, i) {
+      try {
+        if (typeof qrcode === 'undefined') throw new Error('no qr');
+        if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+        var qr = qrcode(0, 'M'); qr.addData(x.q); qr.make();
+        document.getElementById('c' + i).innerHTML = qr.createImgTag(6, 0);
+      } catch (e) { document.getElementById('c' + i).innerHTML = '<div style="font:16px Space Mono,monospace;padding:16px;background:#fff;border-radius:10px">' + esc(x.q) + '</div>'; }
+    });
+  }
+</script>
+</body>
+</html>

@@ -91,9 +91,8 @@ export async function scheduleReminder(stub: Stub): Promise<string | undefined> 
         body:
           stub.kind === 'stay'
             ? [stub.stay?.address?.split(',').slice(0, 2).join(','), 'Tap for directions, door code and Wi-Fi.'].filter(Boolean).join('. ')
-            : count > 1
-              ? `Tap to open your ${count} tickets.`
-              : 'Tap to open your ticket.',
+            : stub.details?.find((d) => d.label === 'Info')?.value ??
+              (count > 1 ? `Tap to open your ${count} tickets.` : 'Tap to open your ticket.'),
         data: { stubId: stub.id },
         // Breaks through Focus modes and stays prominent on the lock screen.
         interruptionLevel: 'timeSensitive',

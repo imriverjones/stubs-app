@@ -217,7 +217,7 @@ export default function TicketScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Ticket code"
                     accessibilityHint="Opens the original ticket"
-                    onPress={() => !p.stub.sample && router.push({ pathname: '/original/[id]', params: { id: p.stub.id, page: p.stub.tickets[p.index].pageUri } })}
+                    onPress={() => !p.stub.sample && !!p.stub.tickets[p.index].pageUri && router.push({ pathname: '/original/[id]', params: { id: p.stub.id, page: p.stub.tickets[p.index].pageUri } })}
                     style={({ pressed }) => pressed && { opacity: 0.85 }}
                   >
                     <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} />

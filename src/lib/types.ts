@@ -84,6 +84,8 @@ export type Stub = {
   cover?: string;
   /** Set only on covers from the old automatic lookup; those are removed on launch. */
   coverCredit?: string;
+  /** The Add to Stash link it came from (shared instead of a file when sending). */
+  link?: string;
   /** A demo ticket from the empty screen: no files, removed when a real ticket is saved. */
   sample?: boolean;
   /** Which fields were read off the ticket (shown as a hint on the confirm screen). */

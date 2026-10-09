@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add to Stash button maker</title>
+<meta name="description" content="Give your customers an Add to Stash button: their ticket on the lock screen on the day, no Apple Wallet setup needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root { --ground:#EDEDE9; --paper:#fff; --ink:#111; --soft:#55554F; --faint:#8A8A82; --rule:#D6D6CF; --accent:#FF5A1F; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:'Space Grotesk', system-ui, sans-serif; }
+  header, main { max-width:980px; margin:0 auto; padding:0 16px; }
+  header { padding-top:28px; }
+  .k { font:12px 'Space Mono', monospace; letter-spacing:1.6px; text-transform:uppercase; color:var(--soft); }
+  h1 { font-family:Anton, Impact, sans-serif; font-weight:400; text-transform:uppercase; font-size:clamp(36px, 7vw, 60px); line-height:1; margin:6px 0 10px; }
+  .lede { max-width:620px; font-size:17px; line-height:1.5; margin:0 0 24px; }
+  .cols { display:grid; grid-template-columns:1fr; gap:20px; padding-bottom:48px; }
+  @media (min-width: 860px) { .cols { grid-template-columns: 1.1fr 0.9fr; } }
+  .card { background:var(--paper); border-radius:18px; padding:20px; }
+  h2 { font:700 13px 'Space Mono', monospace; letter-spacing:1.4px; text-transform:uppercase; margin:0 0 14px; }
+  label { display:block; font:11px 'Space Mono', monospace; letter-spacing:1px; text-transform:uppercase; color:var(--soft); margin:12px 0 5px; }
+  input, select, textarea { width:100%; font:16px 'Space Grotesk', sans-serif; padding:11px 12px; border:1.5px solid var(--rule); border-radius:10px; background:#fff; color:var(--ink); }
+  textarea { min-height:84px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hint { font:12px/1.5 'Space Mono', monospace; color:var(--faint); margin-top:5px; }
+  .out { display:grid; gap:14px; }
+  .linkbox { font:12px 'Space Mono', monospace; word-break:break-all; background:var(--ground); border-radius:10px; padding:10px; max-height:120px; overflow:auto; }
+  button { font:700 15px 'Space Grotesk', sans-serif; border:0; border-radius:999px; padding:12px 18px; cursor:pointer; }
+  .b1 { background:var(--accent); color:var(--ink); } .b2 { background:var(--ink); color:#fff; } .b3 { background:transparent; border:2px solid var(--ink); }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; }
+  .qr img { width:160px; height:160px; image-rendering:pixelated; }
+  .pitch li { margin:6px 0; line-height:1.45; }
+  .err { color:#B42318; font:13px 'Space Mono', monospace; }
+  table { width:100%; border-collapse:collapse; font:12px 'Space Mono', monospace; } td, th { text-align:left; padding:4px 6px; border-bottom:1px solid var(--rule); }
+</style>
+</head>
+<body>
+<header>
+  <div class="k">Stash for business</div>
+  <h1>Add to Stash button</h1>
+  <p class="lede">The Apple Wallet button for companies who don't have one. Your customers tap it in their confirmation email, and the ticket is on their lock screen on the day, with a reminder and your meeting point. No app to build, no Wallet certificates.</p>
+</header>
+<main class="cols">
+  <section class="card">
+    <h2>1 · Ticket details</h2>
+    <label for="c">Company</label><input id="c" placeholder="Ionian Lines">
+    <label for="t">Ticket title</label><input id="t" placeholder="Nidri → Kefalonia">
+    <div class="row">
+      <div><label for="k">Type</label>
+        <select id="k"><option value="ferry">Ferry</option><option value="activity">Activity / boat trip</option><option value="event">Event</option><option value="gig">Gig</option><option value="train">Train</option><option value="bus">Bus</option><option value="flight">Flight</option><option value="other">Other</option></select></div>
+      <div><label for="ref">Booking ref</label><input id="ref" placeholder="KX4-82Q1"></div>
+    </div>
+    <div class="row">
+      <div><label for="d">Date</label><input id="d" type="date"></div>
+      <div><label for="tm">Time</label><input id="tm" type="time"></div>
+    </div>
+    <label for="info">On the day (shown on the ticket and in the reminder)</label>
+    <textarea id="info" maxlength="160" placeholder="Board at Gate 2, 20 minutes before departure. Bring photo ID."></textarea>
+    <label for="sh">Extra details, one per line as Label: value</label>
+    <textarea id="sh" placeholder="Deck: Upper&#10;Port: Nidri"></textarea>
+    <label for="x">Tickets, one per line: QR code contents, then optional details</label>
+    <textarea id="x" placeholder="IL-2026-000123, Seat: 23A, Name: River&#10;IL-2026-000124, Seat: 23B"></textarea>
+    <div class="hint">Use exactly what your scanners read (the text inside your current QR codes). One line per person; they'll swipe between them in Stash.</div>
+  </section>
+
+  <section class="out">
+    <div class="card">
+      <h2>2 · Your button</h2>
+      <div id="err" class="err"></div>
+      <a id="badgeLink" href="#" target="_blank" rel="noopener"><img id="badge" src="../badge.svg" alt="Add to Stash" height="56"></a>
+      <div class="hint">Tap it to see what your customer sees.</div>
+      <label>Link</label><div id="link" class="linkbox">Fill in a title, date and at least one ticket.</div>
+      <div class="btns" style="margin-top:10px">
+        <button class="b1" id="copyLink">Copy link</button>
+        <button class="b2" id="copyHtml">Copy email button (HTML)</button>
+      </div>
+      <label>For printed confirmations and kiosks</label>
+      <div class="qr" id="qr"></div>
+    </div>
+
+    <div class="card">
+      <h2>3 · Lots of bookings? (CSV)</h2>
+      <div class="hint">Columns: title, date (YYYY-MM-DD), time, ref, code, seat, name. One row per ticket; rows with the same ref become one booking. Uses the company, type and “on the day” text above.</div>
+      <textarea id="csv" placeholder="title,date,time,ref,code,seat,name&#10;Nidri → Kefalonia,2026-10-14,09:30,KX4-82Q1,IL-000123,23A,River&#10;Nidri → Kefalonia,2026-10-14,09:30,KX4-82Q1,IL-000124,23B,Jes"></textarea>
+      <div class="btns" style="margin-top:10px"><button class="b3" id="makeCsv">Make links for every booking</button></div>
+      <div id="csvOut"></div>
+    </div>
+
+    <div class="card pitch">
+      <h2>Why customers love it</h2>
+      <ul>
+        <li>Ticket on their lock screen on the day, and the QR code opens at full brightness.</li>
+        <li>A reminder 2 hours before, with your meeting point.</li>
+        <li>No more digging through emails at the gate: faster boarding, fewer no-shows.</li>
+        <li>No app to download first: without Stash, the link still shows their ticket and QR code.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+<script>
+  var PAGE = new URL('../add/', location.href).href;
+  var BADGE = new URL('../badge.svg', location.href).href;
+  var hasQR = typeof qrcode !== 'undefined';
+  if (hasQR && qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  var $ = function (id) { return document.getElementById(id); };
+
+  function b64url(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj)), bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function pairs(text) {
+    return text.split(/\n|,(?=\s*[^,:]+:)/).map(function (l) { var m = l.split(':'); return m.length > 1 ? [m[0].trim(), m.slice(1).join(':').trim()] : null; }).filter(function (p) { return p && p[0] && p[1]; });
+  }
+  function base() {
+    var t = { v: 1, t: $('t').value.trim(), k: $('k').value, d: $('d').value };
+    if ($('tm').value) t.tm = $('tm').value;
+    if ($('c').value.trim()) t.c = $('c').value.trim();
+    if ($('ref').value.trim()) t.ref = $('ref').value.trim();
+    if ($('info').value.trim()) t.info = $('info').value.trim();
+    var sh = pairs($('sh').value); if (sh.length) t.sh = sh;
+    return t;
+  }
+  function tickets() {
+    return $('x').value.split('\n').map(function (l) {
+      l = l.trim(); if (!l) return null;
+      var parts = l.split(','), q = parts.shift().trim(), s = pairs(parts.join(','));
+      return s.length ? { q: q, s: s } : { q: q };
+    }).filter(Boolean);
+  }
+  function linkFor(t) { return PAGE + '#' + b64url(t); }
+  function htmlFor(url) {
+    return '<a href="' + url + '" style="display:inline-block"><img src="' + BADGE + '" alt="Add to Stash" width="220" height="56" style="border:0"></a>';
+  }
+  var current = '';
+  function update() {
+    var t = base(); t.x = tickets();
+    if (!t.x.length && t.ref) t.x = [{ q: t.ref }];
+    var missing = !t.t ? 'Add a ticket title.' : !t.d ? 'Pick a date.' : !t.x.length ? 'Add at least one ticket (or a booking ref).' : '';
+    $('err').textContent = missing;
+    if (missing) { current = ''; $('link').textContent = 'Fill in a title, date and at least one ticket.'; $('qr').innerHTML = ''; $('badgeLink').removeAttribute('href'); return; }
+    current = linkFor(t);
+    $('link').textContent = current;
+    $('badgeLink').href = current;
+    if (hasQR) { var qr = qrcode(0, 'L'); qr.addData(current); qr.make(); $('qr').innerHTML = qr.createImgTag(3, 8); }
+  }
+  function copy(text, btn) {
+    navigator.clipboard.writeText(text).then(function () { var o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = o; }, 1400); });
+  }
+  ['c','t','k','ref','d','tm','info','sh','x'].forEach(function (id) { $(id).addEventListener('input', update); });
+  $('copyLink').onclick = function () { if (current) copy(current, this); };
+  $('copyHtml').onclick = function () { if (current) copy(htmlFor(current), this); };
+
+  $('makeCsv').onclick = function () {
+    var rows = $('csv').value.trim().split('\n').map(function (r) { return r.split(',').map(function (c) { return c.trim(); }); });
+    if (rows.length < 2) { $('csvOut').textContent = 'Paste a header row and at least one booking.'; return; }
+    var head = rows.shift().map(function (h) { return h.toLowerCase(); }), col = function (r, n) { var i = head.indexOf(n); return i >= 0 ? (r[i] || '') : ''; };
+    var groups = {}, order = [];
+    rows.forEach(function (r) {
+      var key = col(r, 'ref') || col(r, 'code');
+      if (!groups[key]) { groups[key] = []; order.push(key); }
+      groups[key].push(r);
+    });
+    var common = base(), out = [['ref', 'title', 'date', 'link']];
+    order.forEach(function (key) {
+      var rs = groups[key], first = rs[0];
+      var t = { v: 1, t: col(first, 'title') || common.t, k: common.k, d: col(first, 'date') || common.d };
+      if (col(first, 'time') || common.tm) t.tm = col(first, 'time') || common.tm;
+      if (common.c) t.c = common.c; if (common.info) t.info = common.info; if (common.sh) t.sh = common.sh;
+      if (col(first, 'ref')) t.ref = col(first, 'ref');
+      t.x = rs.map(function (r) {
+        var s = []; if (col(r, 'seat')) s.push(['Seat', col(r, 'seat')]); if (col(r, 'name')) s.push(['Name', col(r, 'name')]);
+        var x = { q: col(r, 'code') || col(r, 'ref') }; if (s.length) x.s = s; return x;
+      });
+      out.push([t.ref || '', t.t, t.d, linkFor(t)]);
+    });
+    var csv = out.map(function (r) { return r.map(function (c) { return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'stash-links.csv'; a.textContent = 'Download stash-links.csv (' + (out.length - 1) + ' bookings)';
+    $('csvOut').innerHTML = '<p class="hint">Add the link column to your booking emails, or use it in a mail merge.</p>';
+    $('csvOut').appendChild(a);
+  };
+
+  // A filled-in example so it's obvious what to do.
+  var d = new Date(Date.now() + 5 * 864e5);
+  $('c').value = 'Ionian Lines'; $('t').value = 'Nidri → Kefalonia'; $('ref').value = 'KX4-82Q1';
+  $('d').value = d.toISOString().slice(0, 10); $('tm').value = '09:30';
+  $('info').value = 'Board at Gate 2, 20 minutes before departure. Bring photo ID.';
+  $('sh').value = 'Deck: Upper';
+  $('x').value = 'IL-2026-000123, Seat: 23A, Name: River\nIL-2026-000124, Seat: 23B';
+  update();
+</script>
+</body>
+</html>

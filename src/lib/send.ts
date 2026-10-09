@@ -1,3 +1,5 @@
+import { Share } from 'react-native';
+import { dataFromUrl, decodeLink, encodeLink, LINK_PAGE } from './stashLink';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import type { Stub } from './types';
@@ -37,6 +39,15 @@ async function share(src: string, baseName: string, dialogTitle: string) {
 export async function sendTicket(stub: Stub, index: number) {
   const t = stub.tickets[index];
   if (!t) return;
+  // Came from an Add to Stash link: send a link for just this ticket (no file to share).
+  if (!t.pageUri && stub.link) {
+    const data = dataFromUrl(stub.link);
+    const all = data ? decodeLink(data) : null;
+    const one = all ? { ...all, x: [all.x[index] ?? all.x[0]] } : null;
+    const url = one ? `${LINK_PAGE}#${encodeLink(one)}` : stub.link;
+    await Share.share({ message: `${stub.title}${stub.tickets.length > 1 ? ` – ticket ${index + 1}` : ''}: ${url}`, url });
+    return;
+  }
   const sharedPage = stub.tickets.filter((x) => x.pageUri === t.pageUri).length > 1;
   const src = sharedPage && t.code?.cropUri ? t.code.cropUri : t.pageUri;
   const n = stub.tickets.length;
