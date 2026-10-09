@@ -360,21 +360,56 @@ function findTime(lines: string[], dateLine: number | undefined): string | undef
 
 // ---------- kind and title ----------
 
-function guessKind(text: string): Kind | undefined {
-  const t = text.toLowerCase();
+// Which kind each known company sells. A company on the ticket is the strongest clue there is.
+const COMPANY_KIND: Record<string, Kind> = {};
+const kindFor = (k: Kind, names: string[]) => names.forEach((n) => (COMPANY_KIND[n.toLowerCase()] = k));
+kindFor('flight', ['Jet2', 'easyJet', 'Ryanair', 'British Airways', 'Wizz Air', 'Aegean', 'Sky Express', 'Olympic Air', 'Lufthansa', 'KLM', 'Air France', 'Vueling', 'Iberia', 'Aer Lingus', 'Emirates', 'Qatar Airways', 'Virgin Atlantic', 'Norwegian', 'SAS', 'Swiss', 'Austrian Airlines', 'ITA Airways', 'Air New Zealand', 'Loganair', 'Eurowings', 'Transavia', 'Volotea', 'Turkish Airlines']);
+kindFor('ferry', ['Ionian Lines', 'Kefalonian Lines', 'Levante Ferries', 'Minoan Lines', 'ANEK', 'Blue Star Ferries', 'Seajets', 'Hellenic Seaways', 'Superfast Ferries', 'Golden Star Ferries', 'Ferryhopper', 'Brittany Ferries', 'P&O Ferries', 'Stena Line', 'DFDS', 'Irish Ferries', 'Red Funnel', 'Wightlink', 'CalMac', 'Condor Ferries', 'Grimaldi', 'Moby', 'Tirrenia', 'Corsica Ferries', 'Baleària']);
+kindFor('train', ['Eurostar', 'Trainline', 'LNER', 'GWR', 'Avanti West Coast', 'CrossCountry', 'ScotRail', 'Southern', 'Thameslink', 'Northern', 'TransPennine Express', 'Southeastern', 'South Western Railway', 'Chiltern Railways', 'Trenitalia', 'Italo', 'SNCF', 'Deutsche Bahn', 'ÖBB', 'Renfe', 'Hellenic Train']);
+kindFor('bus', ['FlixBus', 'National Express', 'Megabus', 'KTEL']);
+kindFor('stay', ['Booking.com', 'Airbnb', 'Hotels.com']);
+kindFor('activity', ['GetYourGuide', 'Viator', 'Klook', 'Tiqets', 'Fever']);
+
+// Each kind scores points for the words on the ticket; the best score wins. Strong clues
+// (words only that kind of ticket uses) count 3, weaker ones 1. Ticket words like
+// "ticket" or "admission" are on every kind of ticket, so they only decide when nothing else does.
+const CLUES: [Kind, number, RegExp][] = [
+  ['ferry', 3, /\b(ferry|ferries|vessel|sailing|embarkation|deck passenger|vehicle deck)\b|ναυτιλ|πλοίο/giu],
+  ['ferry', 1, /\b(port|ship|crossing|quay|harbour|harbor)\b/gi],
+  ['flight', 3, /\b(boarding pass|flight|airline|gate closes|boarding time|baggage|cabin bag|check-?in closes)\b/gi],
+  ['flight', 1, /\b(terminal|airport|gate|seq|priority)\b/gi],
+  ['train', 3, /\b(train|rail|railway|railcard|off-?peak|super off-?peak|anytime (day )?(single|return)|advance single|any permitted|route:? any|valid (on|until)|platform|carriage|coach [a-z]\b|seat reservation|station|bahn|trenitalia|eurostar|e-?ticket for travel)\b/gi],
+  ['train', 1, /\b(single|return|outward|inbound|depart(s|ure)?|arriv(e|es|al)|reservation)\b/gi],
+  ['bus', 3, /\b(bus|coach station|ktel|flixbus|national express|megabus)\b/gi],
+  ['visa', 3, /\b(e-?visa|visa|esta|electronic travel authori[sz]ation|entry permit)\b/gi],
+  ['car', 3, /\b(car hire|car rental|rental agreement|pick-?up location|hertz|avis|europcar|sixt|enterprise rent|parking)\b/gi],
+  ['medical', 3, /\b(appointment|clinic|hospital|vaccination|vaccine|pharmacy|gp|dentist|medical)\b/gi],
+  ['event', 3, /\b(theatre|theater|musical|matinee|stalls|dress circle|royal circle|grand circle|upper circle|west end|broadway|performance|ballet|opera|comedy)\b/gi],
+  ['gig', 3, /\b(concert|gig|festival|doors open|support act|headliner|standing|live music)\b/gi],
+  ['gig', 1, /\b(tour|live|arena|academy|o2)\b/gi],
+  ['activity', 3, /\b(excursion|activity|experience|lesson|boat trip|day trip|guided tour|waterpark|aquapark|theme park|zoo|meeting point|tour guide|skip the line)\b/gi],
+  ['activity', 1, /\b(museum|cruise|class|tour|attraction)\b/gi],
+  ['event', 1, /\b(admission|entry|venue|match|stadium|race|kick-?off|ground)\b/gi],
+];
+
+/** Score every kind and pick the best, so one stray word ("tour", "port") can't win on its own. */
+export function guessKind(text: string): Kind | undefined {
   if (looksLikeStay(text)) return 'stay';
-  if (/\b(ferry|ferries|vessel|port|sailing|deck|ship|ναυτιλ|πλοίο)\b/.test(t)) return 'ferry';
-  if (/\b(boarding pass|flight|airline|terminal)\b/.test(t)) return 'flight';
-  if (/\b(train|rail|railway|platform|coach [a-z]\b|carriage|bahn|trenitalia|eurostar)\b/.test(t)) return 'train';
-  if (/\b(bus|ktel|flixbus|national express|megabus)\b/.test(t)) return 'bus';
-  if (/\b(e-?visa|visa|esta|electronic travel authori[sz]ation|entry permit)\b/.test(t)) return 'visa';
-  if (/\b(car hire|car rental|rental agreement|pick-?up location|hertz|avis|europcar|sixt|enterprise rent|parking)\b/.test(t)) return 'car';
-  if (/\b(appointment|clinic|hospital|vaccination|vaccine|pharmacy|gp|dentist|medical)\b/.test(t)) return 'medical';
-  if (/\b(theatre|theater|musical|matinee|stalls|dress circle|royal circle|grand circle|west end|broadway)\b/.test(t)) return 'event';
-  if (/\b(concert|gig|tour|live|festival|doors open|support act|arena|academy)\b/.test(t)) return 'gig';
-  if (/\b(excursion|activity|experience|lesson|class|cruise|boat trip|museum|waterpark|aquapark|theme park|zoo)\b/.test(t)) return 'activity';
-  if (/\b(admission|entry|museum|park|tickets?)\b/.test(t)) return 'event';
-  return undefined;
+  const company = findCompany(text);
+  const byCompany = company ? COMPANY_KIND[company.toLowerCase()] : undefined;
+  // A ticket seller like GetYourGuide sells all sorts, so only trust it if nothing else is clearer.
+  if (byCompany && byCompany !== 'activity' && byCompany !== 'stay') return byCompany;
+  const score = new Map<Kind, number>();
+  for (const [kind, points, re] of CLUES) {
+    const hits = text.match(re)?.length ?? 0;
+    if (hits) score.set(kind, (score.get(kind) ?? 0) + points * Math.min(hits, 3));
+  }
+  if (byCompany) score.set(byCompany, (score.get(byCompany) ?? 0) + 3);
+  let best: Kind | undefined;
+  let top = 0;
+  for (const [kind, n] of score) if (n > top) [best, top] = [kind, n];
+  if (best) return best;
+  return /\b(tickets?|admit)\b/i.test(text) ? 'event' : undefined;
 }
 
 function findRoute(lines: string[]): string | undefined {
