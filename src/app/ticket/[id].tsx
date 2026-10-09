@@ -51,8 +51,16 @@ export default function TicketScreen() {
     const g = groupStubs(all);
     const list = isArchived(opened) ? [opened] : [...g.today, ...g.upcoming].filter((s) => (s.kind === 'stay') === isStay);
     if (!list.some((s) => s.id === opened.id)) list.unshift(opened);
-    const flat = list.flatMap((s) => (s.kind === 'stay' || !s.tickets.length ? [{ stub: s, index: 0 }] : s.tickets.map((_, index) => ({ stub: s, index }))));
-    return { pages: flat, start: Math.max(0, flat.findIndex((p) => p.stub.id === opened.id)) };
+    const flat = list.flatMap((s) =>
+      s.kind === 'stay' || !s.tickets.length ? [{ stub: s, index: 0 }] : s.tickets.map((_, index) => ({ stub: s, index })),
+    );
+    return {
+      pages: flat,
+      start: Math.max(
+        0,
+        flat.findIndex((p) => p.stub.id === opened.id),
+      ),
+    };
   }, [all, id]);
   const [current, setCurrent] = useState<number | null>(null);
   const at = Math.min(current ?? start, Math.max(0, pages.length - 1));
@@ -106,14 +114,26 @@ export default function TicketScreen() {
             },
           ]
         : []),
-      ...(sample || isStay ? [] : [{
-        label: count > 1 ? `Send ticket ${page + 1}` : 'Send ticket',
-        run: () => sendTicket(stub, page).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
-      }]),
+      ...(sample || isStay
+        ? []
+        : [
+            {
+              label: count > 1 ? `Send ticket ${page + 1}` : 'Send ticket',
+              run: () => sendTicket(stub, page).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
+            },
+          ]),
       ...(!sample && canSendAll(stub)
-        ? [{ label: `Send all ${count} tickets`, run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))) }]
+        ? [
+            {
+              label: `Send all ${count} tickets`,
+              run: () => sendAll(stub).catch((e) => Alert.alert("Couldn't send", String(e?.message ?? e))),
+            },
+          ]
         : []),
-      { label: 'Edit details', run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }) },
+      {
+        label: 'Edit details',
+        run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }),
+      },
       {
         label: 'Delete',
         destructive: true,
@@ -135,20 +155,29 @@ export default function TicketScreen() {
       );
     } else {
       Alert.alert(stub.title, undefined, [
-        ...items.map((i) => ({ text: i.label, style: i.destructive ? ('destructive' as const) : undefined, onPress: i.run })),
+        ...items.map((i) => ({
+          text: i.label,
+          style: i.destructive ? ('destructive' as const) : undefined,
+          onPress: i.run,
+        })),
         { text: 'Cancel', style: 'cancel' as const },
       ]);
     }
   };
 
-  const toggleUsed = async () => {
+  const toggleUsed = async (stub: Stub) => {
     const used = !stub.usedAt;
     if (used && stub.kind !== 'stay' && !tearing.current) {
       // Tear the stub off along the dotted line, then file it in Archive.
       tearing.current = true;
       haptic('tear');
       await new Promise<void>((done) =>
-        Animated.timing(tear, { toValue: 1, duration: 700, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => done()),
+        Animated.timing(tear, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }).start(() => done()),
       );
       haptic('success');
     }
@@ -158,6 +187,56 @@ export default function TicketScreen() {
       showToast('Moved to Archive', { label: 'Undo', onPress: undo });
     }
   };
+
+  const actions = (stub: Stub, page: number) => (
+    <View style={styles.bottomRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint={stub.usedAt ? 'Moves it back to your upcoming tickets' : 'Moves it to Archive'}
+        onPress={() => toggleUsed(stub)}
+        style={({ pressed }) => [styles.solid, styles.grow, pressed && { opacity: 0.8 }]}
+      >
+        <Text style={styles.solidText}>
+          {stub.kind === 'stay' ? (stub.usedAt ? 'Not checked out' : 'Checked out') : stub.usedAt ? 'Not used yet' : 'Used'}
+        </Text>
+      </Pressable>
+      {stub.sample ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            router.back();
+            removeStub(stub.id);
+            showToast('Sample removed. Share a real ticket to Stash to add it.');
+          }}
+          style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.outlineText}>Remove sample</Text>
+        </Pressable>
+      ) : stub.kind === 'stay' && stub.tickets.some((t) => t.pageUri) ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
+          style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.outlineText}>Screenshots</Text>
+        </Pressable>
+      ) : stub.tickets[page]?.pageUri ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint="Opens the ticket as it was sent to you"
+          onPress={() =>
+            router.push({
+              pathname: '/original/[id]',
+              params: { id: stub.id, page: stub.tickets[page].pageUri },
+            })
+          }
+          style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.outlineText}>See original</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
 
   return (
     <ScrollView
@@ -188,48 +267,6 @@ export default function TicketScreen() {
         </RoundButton>
       </View>
 
-      <ScrollView
-        ref={pager}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentOffset={{ x: width * start, y: 0 }}
-        onLayout={() => {
-          // Open on the ticket that was tapped (contentOffset covers iOS; this covers Android).
-          if (positioned.current) return;
-          positioned.current = true;
-          pager.current?.scrollTo({ x: width * start, animated: false });
-        }}
-        onMomentumScrollEnd={(e) => {
-          const next = Math.round(e.nativeEvent.contentOffset.x / width);
-          if (next !== at) haptic('tap');
-          setCurrent(next);
-        }}
-      >
-        {pages.map((p, i) => (
-          <View key={`${p.stub.id}-${p.index}`} style={{ width, paddingHorizontal: H_PAD }}>
-            {p.stub.kind === 'stay' ? (
-              <StayCard stub={p.stub} />
-            ) : (
-              <TicketCard stub={p.stub} index={p.index} codeSize={codeSize} tear={i === at ? tear : undefined}>
-                {p.stub.tickets[p.index] ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Ticket code"
-                    accessibilityHint="Opens the original ticket"
-                    onPress={() => !p.stub.sample && !!p.stub.tickets[p.index].pageUri && router.push({ pathname: '/original/[id]', params: { id: p.stub.id, page: p.stub.tickets[p.index].pageUri } })}
-                    style={({ pressed }) => pressed && { opacity: 0.85 }}
-                  >
-                    <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} />
-                  </Pressable>
-                ) : null}
-              </TicketCard>
-            )}
-          </View>
-        ))}
-      </ScrollView>
-
       <View style={styles.below}>
         {pages.length > 1 && pages.length <= 14 && (
           <View style={styles.dots} accessibilityLabel={`Page ${at + 1} of ${pages.length}. Swipe for the next one.`}>
@@ -252,50 +289,63 @@ export default function TicketScreen() {
         )}
       </View>
 
-      <View style={{ flex: 1, minHeight: 12 }} />
-
-      <View style={styles.bottomRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityHint={stub.usedAt ? 'Moves it back to your upcoming tickets' : 'Moves it to Archive'}
-          onPress={toggleUsed}
-          style={({ pressed }) => [styles.solid, styles.grow, pressed && { opacity: 0.8 }]}
-        >
-          <Text style={styles.solidText}>
-            {stub.kind === 'stay' ? (stub.usedAt ? 'Not checked out' : 'Checked out') : stub.usedAt ? 'Not used yet' : 'Used'}
-          </Text>
-        </Pressable>
-        {stub.sample ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              router.back();
-              removeStub(stub.id);
-              showToast('Sample removed. Share a real ticket to Stash to add it.');
-            }}
-            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.outlineText}>Remove sample</Text>
-          </Pressable>
-        ) : stub.kind === 'stay' && stub.tickets.some((t) => t.pageUri) ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id } })}
-            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.outlineText}>Screenshots</Text>
-          </Pressable>
-        ) : stub.tickets[page]?.pageUri ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityHint="Opens the ticket as it was sent to you"
-            onPress={() => router.push({ pathname: '/original/[id]', params: { id: stub.id, page: stub.tickets[page].pageUri } })}
-            style={({ pressed }) => [styles.outline, styles.grow, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.outlineText}>See original</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <ScrollView
+        ref={pager}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentOffset={{ x: width * start, y: 0 }}
+        onLayout={() => {
+          // Open on the ticket that was tapped (contentOffset covers iOS; this covers Android).
+          if (positioned.current) return;
+          positioned.current = true;
+          pager.current?.scrollTo({ x: width * start, animated: false });
+        }}
+        onMomentumScrollEnd={(e) => {
+          const next = Math.round(e.nativeEvent.contentOffset.x / width);
+          if (next !== at) haptic('tap');
+          setCurrent(next);
+        }}
+      >
+        {pages.map((p, i) => (
+          <View key={`${p.stub.id}-${p.index}`} style={{ width, paddingHorizontal: H_PAD }}>
+            {p.stub.kind === 'stay' ? (
+              <View style={styles.pageBody}>
+                <StayCard stub={p.stub} />
+                {actions(p.stub, p.index)}
+              </View>
+            ) : (
+              <View style={styles.pageBody}>
+                <TicketCard stub={p.stub} index={p.index} codeSize={codeSize} tear={i === at ? tear : undefined}>
+                  {p.stub.tickets[p.index] ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Ticket code"
+                      accessibilityHint="Opens the original ticket"
+                      onPress={() =>
+                        !p.stub.sample &&
+                        !!p.stub.tickets[p.index].pageUri &&
+                        router.push({
+                          pathname: '/original/[id]',
+                          params: {
+                            id: p.stub.id,
+                            page: p.stub.tickets[p.index].pageUri,
+                          },
+                        })
+                      }
+                      style={({ pressed }) => pressed && { opacity: 0.85 }}
+                    >
+                      <CodeView ticket={p.stub.tickets[p.index]} size={codeSize} />
+                    </Pressable>
+                  ) : null}
+                </TicketCard>
+                {actions(p.stub, p.index)}
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
     </ScrollView>
   );
 }
@@ -354,9 +404,16 @@ function TicketCard({
           <View style={styles.grid}>
             <Field label="Date" value={`${relativeDay(stub.date) === 'Today' ? 'Today · ' : ''}${fmt.short(stub.date)}`} />
             {stub.time ? <Field label="Time" value={stub.time} /> : null}
-            {[...(stub.tickets[index]?.details ?? []), ...(stub.details ?? [])].filter((d) => d.label !== 'Company').map((d, i) => (
-              <Field key={`${d.label}-${i}`} label={d.label === 'Ref' ? 'Booking ref' : d.label} value={d.value} mono={d.label === 'Ref'} />
-            ))}
+            {[...(stub.tickets[index]?.details ?? []), ...(stub.details ?? [])]
+              .filter((d) => d.label !== 'Company')
+              .map((d, i) => (
+                <Field
+                  key={`${d.label}-${i}`}
+                  label={d.label === 'Ref' ? 'Booking ref' : d.label}
+                  value={d.value}
+                  mono={d.label === 'Ref'}
+                />
+              ))}
           </View>
         </View>
       }
@@ -383,26 +440,71 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 const styles = StyleSheet.create({
-  markRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  markRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   screen: { flex: 1, backgroundColor: colors.accent },
   scrollBody: { flexGrow: 1, gap: 16 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  counter: { backgroundColor: colors.ink, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  counterText: { fontFamily: fonts.monoBold, fontSize: 13, color: colors.paper },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  counter: {
+    backgroundColor: colors.ink,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  counterText: {
+    fontFamily: fonts.monoBold,
+    fontSize: 13,
+    color: colors.paper,
+  },
   cardTop: { padding: 22, paddingBottom: 18, gap: 12 },
-  cardLabel: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: colors.inkSoft },
-  cardTitle: { fontFamily: fonts.display, fontSize: 38, textTransform: 'uppercase', color: colors.ink },
+  cardLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    color: colors.inkSoft,
+  },
+  cardTitle: {
+    fontFamily: fonts.display,
+    fontSize: 38,
+    textTransform: 'uppercase',
+    color: colors.ink,
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 28, rowGap: 10 },
   fieldBox: { gap: 2 },
-  fieldLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: colors.inkFaint },
+  fieldLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.inkFaint,
+  },
   fieldValue: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
   cardBottom: { padding: 20, alignItems: 'center', gap: 12 },
   bright: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brightText: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   below: { gap: 8, alignItems: 'center', paddingHorizontal: H_PAD },
-  swipeHint: { fontFamily: fonts.mono, fontSize: 11, color: 'rgba(17,17,17,0.65)', textAlign: 'center' },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(17,17,17,0.35)' },
+  swipeHint: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: 'rgba(17,17,17,0.65)',
+    textAlign: 'center',
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(17,17,17,0.35)',
+  },
   dotOn: { width: 22, backgroundColor: colors.ink },
   outline: {
     height: 54,
@@ -413,7 +515,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  bottomRow: { flexDirection: 'row', gap: 12, paddingHorizontal: H_PAD, paddingTop: 8 },
+  bottomRow: { flexDirection: 'row', gap: 12 },
+  pageBody: { gap: 16 },
   grow: { flex: 1 },
   solid: {
     height: 54,
@@ -426,6 +529,11 @@ const styles = StyleSheet.create({
   solidText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.paper },
   outlineText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink },
   missing: { paddingHorizontal: H_PAD, gap: 12 },
-  missingTitle: { fontFamily: fonts.display, fontSize: 44, textTransform: 'uppercase', color: colors.ink },
+  missingTitle: {
+    fontFamily: fonts.display,
+    fontSize: 44,
+    textTransform: 'uppercase',
+    color: colors.ink,
+  },
   missingBody: { fontFamily: fonts.body, fontSize: 16, color: colors.ink },
 });
