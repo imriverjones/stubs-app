@@ -342,6 +342,8 @@ function findTime(lines: string[], dateLine: number | undefined): string | undef
   if (dateLine != null) {
     for (const i of [dateLine, dateLine + 1, dateLine + 2]) {
       const l = lines[i];
+      // "Date/time purchased" starts a different date: stop looking here.
+      if (i > dateLine && l && BAD_CONTEXT.test(l)) break;
       if (l && !TIME_DOORS.test(l)) {
         const t = timeOn(l);
         if (t) return t;
@@ -350,7 +352,7 @@ function findTime(lines: string[], dateLine: number | undefined): string | undef
   }
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (TIME_GOOD.test(l) && !TIME_DOORS.test(l)) {
+    if (TIME_GOOD.test(l) && !TIME_DOORS.test(l) && !BAD_CONTEXT.test(l)) {
       const t = timeOn(l) ?? (l.length < 30 ? timeOn(lines[i + 1] ?? '') : null);
       if (t) return t;
     }
@@ -365,7 +367,7 @@ const COMPANY_KIND: Record<string, Kind> = {};
 const kindFor = (k: Kind, names: string[]) => names.forEach((n) => (COMPANY_KIND[n.toLowerCase()] = k));
 kindFor('flight', ['Jet2', 'easyJet', 'Ryanair', 'British Airways', 'Wizz Air', 'Aegean', 'Sky Express', 'Olympic Air', 'Lufthansa', 'KLM', 'Air France', 'Vueling', 'Iberia', 'Aer Lingus', 'Emirates', 'Qatar Airways', 'Virgin Atlantic', 'Norwegian', 'SAS', 'Swiss', 'Austrian Airlines', 'ITA Airways', 'Air New Zealand', 'Loganair', 'Eurowings', 'Transavia', 'Volotea', 'Turkish Airlines']);
 kindFor('ferry', ['Ionian Lines', 'Kefalonian Lines', 'Levante Ferries', 'Minoan Lines', 'ANEK', 'Blue Star Ferries', 'Seajets', 'Hellenic Seaways', 'Superfast Ferries', 'Golden Star Ferries', 'Ferryhopper', 'Brittany Ferries', 'P&O Ferries', 'Stena Line', 'DFDS', 'Irish Ferries', 'Red Funnel', 'Wightlink', 'CalMac', 'Condor Ferries', 'Grimaldi', 'Moby', 'Tirrenia', 'Corsica Ferries', 'Baleària']);
-kindFor('train', ['Eurostar', 'Trainline', 'LNER', 'GWR', 'Avanti West Coast', 'CrossCountry', 'ScotRail', 'Southern', 'Thameslink', 'Northern', 'TransPennine Express', 'Southeastern', 'South Western Railway', 'Chiltern Railways', 'Trenitalia', 'Italo', 'SNCF', 'Deutsche Bahn', 'ÖBB', 'Renfe', 'Hellenic Train']);
+kindFor('train', ['SplitSave', 'TrainPal', 'Seatfrog', 'Raileasy', 'SplitMyFare', 'Eurostar', 'Trainline', 'LNER', 'GWR', 'Avanti West Coast', 'CrossCountry', 'ScotRail', 'Southern', 'Thameslink', 'Northern', 'TransPennine Express', 'Southeastern', 'South Western Railway', 'Chiltern Railways', 'Trenitalia', 'Italo', 'SNCF', 'Deutsche Bahn', 'ÖBB', 'Renfe', 'Hellenic Train']);
 kindFor('bus', ['FlixBus', 'National Express', 'Megabus', 'KTEL']);
 kindFor('stay', ['Booking.com', 'Airbnb', 'Hotels.com']);
 kindFor('activity', ['GetYourGuide', 'Viator', 'Klook', 'Tiqets', 'Fever']);
@@ -415,24 +417,56 @@ export function guessKind(text: string): Kind | undefined {
 function findRoute(lines: string[]): string | undefined {
   let from: string | undefined;
   let to: string | undefined;
+  let arrowLine = -1;
   const place = (s: string) => {
     const v = s.replace(/^[:\-–\s]+/, '').split(/\t|\s{2,}|\d{1,2}[:.]\d{2}|\(/)[0].trim();
     return v.length >= 3 && v.length <= 30 && /^[\p{L}][\p{L} .'-]+$/u.test(v) ? v : undefined;
   };
+  const UI = /^(add|share|save|view|go|back|open|apple|wallet|download|print|email|send|next|previous|close|options|ticket|route|adult|child|valid)\b/i;
+  const notPlace = (x: string) => UI.test(x.trim()) || INLINE_RE_TEST.test(x) || AREA_ANY.test(x);
+  const ARROW = [
+    /^([\p{L} .'-]{3,30}?)\s*(?:→|->|>|⇒|=>)\s*([\p{L} .'-]{3,30})$/u,
+    /^([\p{L} .'-]{3,30}?)\s+(?:–|—|-|to)\s+([\p{L} .'-]{3,30})$/u,
+  ];
   lines.forEach((l, i) => {
     const f = l.match(/^(from|departure port|origin|von|da|desde|από)\b[:\s]*(.*)$/i);
     const t = l.match(/^(to|arrival port|destination|nach|a|hasta|προς)\b[:\s]*(.*)$/i);
     if (f && !from) from = place(f[2]) ?? place(lines[i + 1] ?? '');
     if (t && !to) to = place(t[2]) ?? place(lines[i + 1] ?? '');
-    const arrow = l.match(/^([\p{L} .'-]{3,30}?)\s*(?:→|->|>)\s*([\p{L} .'-]{3,30})$/u) ?? l.match(/^([\p{L} .'-]{3,30}?)\s+(?:–|—|-|to)\s+([\p{L} .'-]{3,30})$/u);
-    const UI = /^(add|share|save|view|go|back|open|apple|wallet|download|print|email|send|next|previous|close)\b/i;
-    const notPlace = (x: string) => UI.test(x.trim()) || INLINE_RE_TEST.test(x) || AREA_ANY.test(x);
-    if (arrow && !from && !to && /[A-Z]/.test(arrow[1][0]) && !notPlace(arrow[1]) && !notPlace(arrow[2])) {
-      from = place(arrow[1]);
-      to = place(arrow[2]);
+    if (from || to) return;
+    // "Cardiff → London", or "SSD - BIS" sitting in one cell of a row
+    for (const cell of [l.replace(/\t/g, ' '), ...l.split('\t')]) {
+      const c = cell.trim();
+      const arrow = ARROW.map((re) => c.match(re)).find(Boolean);
+      if (arrow && /[A-Z]/.test(arrow[1][0]) && !notPlace(arrow[1]) && !notPlace(arrow[2])) {
+        from = place(arrow[1]);
+        to = place(arrow[2]);
+        if (from && to) {
+          arrowLine = i;
+          return;
+        }
+        from = to = undefined;
+      }
     }
   });
-  return from && to ? `${titleCase(from)} → ${titleCase(to)}` : undefined;
+  if (!from || !to) return undefined;
+  // Station or airport codes ("SSD → BIS"): use the full names printed next to them if there are any.
+  const isCode = (x: string) => /^[A-Z]{3}$/.test(x.trim());
+  if (isCode(from) && isCode(to) && arrowLine >= 0) {
+    const near = lines.slice(Math.max(0, arrowLine - 3), arrowLine + 4);
+    const names: string[] = [];
+    for (const l of near) {
+      const cells = l.split('\t').map((c) => c.trim());
+      const ok = cells.filter((c) => c.length > 4 && !isCode(c) && /\p{Ll}/u.test(c) && place(c) && !notPlace(c) && !/\d/.test(c));
+      if (cells.length === 2 && ok.length === 2) {
+        names.splice(0, names.length, ...ok);
+        break;
+      }
+      if (cells.length === 1 && ok.length === 1 && names.length < 2) names.push(ok[0]);
+    }
+    if (names.length === 2) [from, to] = names;
+  }
+  return `${titleCase(from)} → ${titleCase(to)}`;
 }
 
 const titleCase = (s: string) =>
@@ -440,8 +474,8 @@ const titleCase = (s: string) =>
 
 // ---------- event titles (screenshots have no useful file name) ----------
 
-const BRANDS = /^(ticketmaster|live nation|atg|atg tickets|axs|see tickets|seetickets|eventim|eventbrite|dice|skiddle|todaytix|lovetheatre|love theatre|london theatre direct|delfont|mackintosh|delfont mackintosh( theatres)?|theatres|nimax( theatres)?|ambassador theatre group|trainline|gigantic|fatsoma|tixr|stubhub|viagogo|twickets|ticketswap|fever|klook|getyourguide|viator|tiqets)$/i;
-const UI_TEXT = /^(log ?in|sign ?in|sign up|log out|my account|back|done|close|cancel|share|edit|more|menu|home|account|help|info|information|details|(ticket|event|order|booking) details|(my|your) (tickets?|orders?|bookings?)|tickets?|e-?tickets?|mobile tickets?|m-?tickets?|(view|show|see) (tickets?|order|details|more)|orders?|upcoming|past|events?|add to (apple )?wallet|add to google (wallet|pay)|transfer|sell|resale|directions|get directions|map|show more|admit one|admission|general admission|standard|adult|child|concession|full price|venue|date|time|location|barcode|qr code|ticket holder|name|today|tomorrow|tonight|booking confirmed|order confirmed|confirmed|you'?re going!?|enjoy the show!?|search|settings|wallet|for you|discover)$/i;
+const BRANDS = /^(splitsave|split save|splitmyfare|trainpal|seatfrog|raileasy|railsmartr|national rail|omio|ticketmaster|live nation|atg|atg tickets|axs|see tickets|seetickets|eventim|eventbrite|dice|skiddle|todaytix|lovetheatre|love theatre|london theatre direct|delfont|mackintosh|delfont mackintosh( theatres)?|theatres|nimax( theatres)?|ambassador theatre group|trainline|gigantic|fatsoma|tixr|stubhub|viagogo|twickets|ticketswap|fever|klook|getyourguide|viator|tiqets)$/i;
+const UI_TEXT = /^(log ?in|sign ?in|sign up|log out|my account|back|done|close|cancel|share|edit|more|menu|home|account|help|info|information|details|(ticket|event|order|booking) details|(my|your) (tickets?|orders?|bookings?)|tickets?|e-?tickets?|mobile tickets?|m-?tickets?|(view|show|see) (tickets?|order|details|more)|orders?|upcoming|past|events?|add to (apple )?wallet|add to google (wallet|pay)|transfer|sell|resale|directions|get directions|map|show more|admit one|admission|general admission|standard|adult|child|concession|full price|venue|date|time|location|barcode|qr code|ticket holder|name|today|tomorrow|tonight|booking confirmed|order confirmed|confirmed|you'?re going!?|enjoy the show!?|search|settings|wallet|for you|discover|available offline|offline|options|your ticket|your tickets|show ticket details|ticket details|show details|add to apple wallet|valid until|ticket type|route|railcard)$/i;
 const NOT_TITLE = /^(adult|child|children|senior|family|student|infant|concession|day pass|season pass|qty|quantity|price|total|scan|present|show this|please|this ticket|ticket \d|\d+ of \d+|\d+ tickets?|order|booking|ref|subtotal|fee|terms|conditions|t&cs|doors|gates|age|over|under)\b/i;
 const VENUE = /\b(theatres?|theaters?|arena|stadium|hall|academy|centre|center|club|palace|pavilion|opera house|coliseum|apollo|lyceum|forum|ballroom|playhouse|dome|bowl|gardens?|ground|square|street|road|lane|london|manchester|glasgow|dublin|birmingham)\b/i;
 const SMALL = new Set(['of', 'the', 'and', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'de', 'la', 'le', 'du', 'des', 'et']);
@@ -466,7 +500,11 @@ export function findEventTitle(lines: string[], today = new Date()): string | un
   top.forEach((line, i) => {
     const cells = line.split(/\t/);
     cells.forEach((raw, k) => {
-      const c = raw.trim().replace(/^[<‹←❮>›]+\s*/, '').replace(/\s*[>›→]+$/, '').trim();
+      const c = raw
+        .trim()
+        .replace(/^[<‹←❮>›•·●○◦▪■□*|©®@]+\s*/, '')
+        .replace(/\s*[>›→]+$/, '')
+        .trim();
       const letters = (c.match(/\p{L}/gu) ?? []).length;
       const digits = (c.match(/\d/g) ?? []).length;
       if (c.length < 3 || c.length > 50 || letters < 3) return;
@@ -490,6 +528,8 @@ export function findEventTitle(lines: string[], today = new Date()): string | un
       // Titles sit just above the date or venue, best of all in the same column.
       const next = top[i + 1]?.split(/\t/);
       const sameColumn = next && next.length === cells.length ? next[k] : next?.length === 1 ? next[0] : undefined;
+      // Some apps (GetYourGuide) put the title just under the date instead.
+      if (isWhen(top[i - 1]) && !isWhen(c)) score += 4;
       if (isWhen(sameColumn) || (sameColumn && VENUE.test(sameColumn))) score += 8;
       else {
         const below = top.slice(i + 1, i + 3).join(' ');
@@ -515,7 +555,7 @@ const COMPANIES = [
   // trains and coaches
   'Eurostar', 'Trainline', 'LNER', 'GWR', 'Avanti West Coast', 'CrossCountry', 'ScotRail', 'Southern', 'Thameslink', 'Northern',
   'TransPennine Express', 'Southeastern', 'South Western Railway', 'Chiltern Railways', 'Trenitalia', 'Italo', 'SNCF', 'Deutsche Bahn',
-  'ÖBB', 'Renfe', 'Hellenic Train', 'FlixBus', 'National Express', 'Megabus', 'KTEL', 'Omio',
+  'ÖBB', 'Renfe', 'Hellenic Train', 'SplitSave', 'TrainPal', 'Seatfrog', 'Raileasy', 'SplitMyFare', 'FlixBus', 'National Express', 'Megabus', 'KTEL', 'Omio',
   // tickets and venues
   'Ticketmaster', 'AXS', 'See Tickets', 'Eventim', 'DICE', 'Eventbrite', 'Skiddle', 'Fatsoma', 'ATG Tickets', 'Delfont Mackintosh',
   'Nimax', 'LW Theatres', 'LOVEtheatre', 'TodayTix', 'Live Nation', 'Gigantic', 'Twickets', 'Universe', 'Tixr', 'GetYourGuide',
@@ -530,7 +570,12 @@ const COMPANY_RE = new RegExp(
 /** The airline, ferry line or ticket seller named on the ticket, if it's one we know. */
 export function findCompany(text: string): string | undefined {
   const m = text.match(COMPANY_RE);
-  if (!m) return undefined;
+  if (!m) {
+    // Logos OCR badly; some companies give themselves away another way.
+    if (/\bget\s*your\s*guide\b|\bGYG[A-Z0-9]{6,}\b/i.test(text)) return 'GetYourGuide';
+    if (/\bsplit\s*save\b/i.test(text)) return 'SplitSave';
+    return undefined;
+  }
   const found = m[1].replace(/\s+/g, ' ').toLowerCase();
   return COMPANIES.find((c) => c.toLowerCase() === found) ?? m[1];
 }
@@ -687,6 +732,16 @@ export function extractDetails(pages: PageText[], ticketCount: number, today = n
 
   const bp = pass;
   const kind: Kind | undefined = bp ? 'flight' : guessKind(allText);
+
+  // A long code under "group" is a booking code (GetYourGuide), not a boarding group.
+  for (const list of [shared, ...perTicket]) for (const d of list) if (d.label === 'Group' && /^[A-Z0-9]{8,}$/i.test(d.value)) d.label = 'Ref';
+  // UK rail: the fare and railcard are what the guard checks.
+  if (kind === 'train') {
+    const fare = allText.match(/\b((?:super\s+)?off-?peak(?:\s+day)?|anytime(?:\s+day)?|advance|flexi(?:\s*season)?)\s+(single|return)\b/i);
+    if (fare && !shared.some((d) => d.label === 'Fare')) shared.push({ label: 'Fare', value: niceTitle(fare[0].replace(/\s+/g, ' ')) });
+    const card = allText.match(/\b(16-25|26-30|16-17|senior|two together|family (?:&|and) friends|network|disabled persons|veterans|hm forces|santander|gold card)\s+railcard\b/i);
+    if (card && !shared.some((d) => d.label === 'Railcard')) shared.push({ label: 'Railcard', value: niceTitle(card[1]) });
+  }
   const route = findRoute(lines) ?? (bp ? `${bp.from} → ${bp.to}` : undefined);
   const firstPage = (pages[0]?.text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const travel = kind === 'ferry' || kind === 'train' || kind === 'bus' || kind === 'flight';
