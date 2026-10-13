@@ -31,6 +31,8 @@ import { ticketAccent } from '../../lib/palette';
 import { KINDS, type Stub } from '../../lib/types';
 import { haptic } from '../../lib/native';
 import { useMaxBrightness } from '../../lib/useMaxBrightness';
+import { chooseTripFor, confirmRemove } from '../../lib/tripActions';
+import { tripOf, useTrips } from '../../lib/useTrips';
 import { colors, fonts } from '../../theme';
 
 const H_PAD = 20;
@@ -65,6 +67,7 @@ export default function TicketScreen() {
   const at = Math.min(current ?? start, Math.max(0, pages.length - 1));
   const stub = pages[at]?.stub;
   const page = pages[at]?.index ?? 0;
+  const trips = useTrips();
   const stubIds = useMemo(() => [...new Set(pages.map((p) => p.stub.id))], [pages]);
   const positioned = useRef(false);
   const [tear] = useState(() => new Animated.Value(0));
@@ -89,6 +92,7 @@ export default function TicketScreen() {
   const codeSize = Math.min(cardWidth - 80, 300);
 
   const more = () => {
+    const trip = tripOf(trips, stub.id);
     const sample = !!stub.sample;
     const isStay = stub.kind === 'stay';
     const items: { label: string; run: () => void; destructive?: boolean }[] = [
@@ -129,6 +133,14 @@ export default function TicketScreen() {
             },
           ]
         : []),
+      ...(sample
+        ? []
+        : trip
+          ? [
+              { label: `Open trip: ${trip.name}`, run: () => router.push({ pathname: '/trip/[id]', params: { id: trip.id } }) },
+              { label: 'Take out of trip', run: () => confirmRemove(stub, trip, () => showToast('Taken out of the trip')) },
+            ]
+          : [{ label: 'Add to trip…', run: () => chooseTripFor(stub, trips, () => showToast('Added to the trip')) }]),
       {
         label: 'Edit details',
         run: () => router.push({ pathname: '/edit/[id]', params: { id: stub.id } }),

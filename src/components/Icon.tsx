@@ -14,6 +14,12 @@ const paths = {
   doc: 'M7 3h7l5 5v13H7zM14 3v5h5',
   photo: 'M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4',
   ticket: 'M4 7a2 2 0 0 0 2-2h12a2 2 0 0 0 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0-2 2H6a2 2 0 0 0-2-2v-3a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2',
+  plane: 'M10.5 21l1.5-1v-5l8 2v-2l-8-5V4.5a1.5 1.5 0 0 0-3 0V10l-8 5v2l8-2v5l1.5 1',
+  ferry: 'M3 15l2.5 5h13l2.5-5zM6 15V9h12v6M10 9V5h4v4',
+  train: 'M6 3h12v13H6zM6 10h12M9.5 13h.01M14.5 13h.01M8 20l2-4M16 20l-2-4',
+  bus: 'M5 4h14v13H5zM5 11h14M8 17v3M16 17v3',
+  car: 'M3 13l2-5h14l2 5v4H3zM7 17v2.5M17 17v2.5M3 13h18',
+  suitcase: 'M4 8h16v12H4zM9 8V5h6v3M4 13h16',
 } as const;
 
 type Name = keyof typeof paths | 'more';

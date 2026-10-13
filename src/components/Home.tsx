@@ -19,6 +19,8 @@ import { summary } from '../lib/lockscreen';
 import { addSampleTicket, clearPast, groupStubs, removeStub, useStore } from '../lib/store';
 import { KINDS, type Stub } from '../lib/types';
 import { useAddTicket } from '../lib/useAddTicket';
+import { iconFor, useTrips } from '../lib/useTrips';
+import { tripDates, tripNights, type Trip } from '../lib/trips';
 import { colors, fonts, label } from '../theme';
 
 const kindLabel = (s: Stub) => KINDS.find((k) => k.id === s.kind)?.label ?? 'Ticket';
@@ -63,10 +65,25 @@ export function Home() {
   const { width } = useWindowDimensions();
   const cardW = width - 56;
   // The next few tickets go in the carousel; everything after that is listed below.
-  const live = [...groups.today, ...groups.upcoming];
+  const live = useMemo(() => [...groups.today, ...groups.upcoming], [groups]);
   const next = live.slice(0, NEXT_COUNT);
   // Everything ahead, counting down (plus anything today that didn't fit in the carousel).
-  const comingUp = live.filter((s, i) => s.date > today || i >= NEXT_COUNT);
+  const comingUp = useMemo(() => live.filter((s, i) => s.date > today || i >= NEXT_COUNT), [live, today]);
+  // Trips take one row for all their parts, placed where their first part falls.
+  const trips = useTrips();
+  const list = useMemo(() => {
+    const out: ({ trip: Trip } | { stub: Stub })[] = [];
+    const shown = new Set<string>();
+    const later = new Set(comingUp.map((s) => s.id));
+    for (const s of live) {
+      const trip = trips.find((t) => t.items.some((x) => x.id === s.id));
+      if (trip) {
+        if (!shown.has(trip.id)) out.push({ trip });
+        shown.add(trip.id);
+      } else if (later.has(s.id)) out.push({ stub: s });
+    }
+    return out;
+  }, [live, comingUp, trips]);
 
   // First launch: show how Stash works.
   const introSeen = useStore((s) => s.settings.introSeen);
@@ -154,17 +171,21 @@ export function Home() {
           </View>
         )}
 
-        {comingUp.length > 0 && (
+        {list.length > 0 && (
           <View style={styles.section}>
             <View style={styles.rowBetween}>
               <Text style={label}>Coming up</Text>
               <Text style={styles.hint}>Swipe left to delete</Text>
             </View>
-            {comingUp.map((s) => (
-              <SwipeToDelete key={s.id} stub={s}>
-                <StubRow stub={s} countdown />
-              </SwipeToDelete>
-            ))}
+            {list.map((e) =>
+              'trip' in e ? (
+                <TripRow key={e.trip.id} trip={e.trip} />
+              ) : (
+                <SwipeToDelete key={e.stub.id} stub={e.stub}>
+                  <StubRow stub={e.stub} countdown />
+                </SwipeToDelete>
+              ),
+            )}
           </View>
         )}
 
@@ -340,6 +361,48 @@ function StubRow({ stub, faded, countdown }: { stub: Stub; faded?: boolean; coun
   );
 }
 
+/** One row for a whole trip: where, when, and what's booked. */
+function TripRow({ trip }: { trip: Trip }) {
+  const today = dayKey();
+  const days = daysBetween(today, trip.start);
+  const away = trip.start <= today;
+  const nights = tripNights(trip);
+  const kinds = [...new Set(trip.items.map((s) => iconFor(s.kind)))];
+  const accent = ticketAccent(trip.items[0]?.color, colors.accent);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Trip to ${trip.name}, ${tripDates(trip.start, trip.end)}, ${trip.items.length} bookings`}
+      onPress={() => router.push({ pathname: '/trip/[id]', params: { id: trip.id } })}
+      style={({ pressed }) => [styles.tripRow, pressed && { opacity: 0.85 }]}
+    >
+      <View style={[styles.rowDate, styles.tripDate, { backgroundColor: accent }]}>
+        <Text style={[styles.rowDay, days > 99 && { fontSize: 24 }]}>{away ? 'NOW' : days}</Text>
+        <Text style={[styles.rowDow, { color: colors.ink }]}>{away ? 'AWAY' : days === 1 ? 'DAY' : 'DAYS'}</Text>
+      </View>
+      <View style={styles.tripBody}>
+        <Text style={styles.tripKicker}>Trip</Text>
+        <Text style={styles.tripName} numberOfLines={1}>
+          {trip.name}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {[tripDates(trip.start, trip.end), nights ? `${nights} night${nights === 1 ? '' : 's'}` : '', `${trip.items.length} booked`].filter(Boolean).join(' · ')}
+        </Text>
+        <View style={styles.tripIcons}>
+          {kinds.map((k) => (
+            <View key={k} style={styles.tripIcon}>
+              <Icon name={k} size={14} color={colors.ink} stroke={2.2} />
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.tripArrow}>
+        <Icon name="arrow" size={18} color={colors.ink} />
+      </View>
+    </Pressable>
+  );
+}
+
 function SwipeToDelete({ stub, children }: { stub: Stub; children: React.ReactNode }) {
   return (
     <ReanimatedSwipeable
@@ -437,6 +500,14 @@ const styles = StyleSheet.create({
   tile: { flexBasis: '47%', flexGrow: 1, backgroundColor: colors.paper, borderRadius: 14, padding: 14, gap: 10, minHeight: 92 },
   tileIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
   tileText: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18, color: colors.ink },
+  tripRow: { backgroundColor: colors.paper, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', minHeight: 112, overflow: 'hidden' },
+  tripDate: { borderTopLeftRadius: 14, borderBottomLeftRadius: 14 },
+  tripBody: { flex: 1, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center', gap: 4 },
+  tripKicker: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.inkSoft },
+  tripName: { fontFamily: fonts.display, fontSize: 28, lineHeight: 32, textTransform: 'uppercase', color: colors.ink },
+  tripIcons: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  tripIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
+  tripArrow: { justifyContent: 'center', paddingRight: 16 },
   row: { backgroundColor: colors.paper, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', height: 76 },
   rowDate: { width: 74, alignItems: 'center', justifyContent: 'center' },
   rowDay: { fontFamily: fonts.display, fontSize: 30, color: colors.ink },
