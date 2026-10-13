@@ -42,14 +42,13 @@ export default function TicketScreen() {
   const { width } = useWindowDimensions();
   const pager = useRef<ScrollView>(null);
 
-  // Swipe on to the next ticket in the same list (Tickets or Stays), in date order.
+  // Swipe on to the next ticket or stay, in date order.
   // Something opened from Archive stays on its own.
   const { pages, start } = useMemo(() => {
     const opened = all.find((x) => x.id === id);
     if (!opened) return { pages: [] as { stub: Stub; index: number }[], start: 0 };
-    const isStay = opened.kind === 'stay';
     const g = groupStubs(all);
-    const list = isArchived(opened) ? [opened] : [...g.today, ...g.upcoming].filter((s) => (s.kind === 'stay') === isStay);
+    const list = isArchived(opened) ? [opened] : [...g.today, ...g.upcoming];
     if (!list.some((s) => s.id === opened.id)) list.unshift(opened);
     const flat = list.flatMap((s) =>
       s.kind === 'stay' || !s.tickets.length ? [{ stub: s, index: 0 }] : s.tickets.map((_, index) => ({ stub: s, index })),

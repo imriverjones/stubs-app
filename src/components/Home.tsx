@@ -50,15 +50,10 @@ function deleteWithUndo(stub: Stub) {
   showToast(`Deleted ${stub.title}`, { label: 'Undo', onPress: undo });
 }
 
-export type HomeMode = 'tickets' | 'stays';
-
-/** A tab's list: Tickets (everything but stays) or Stays. */
-export function Home({ mode }: { mode: HomeMode }) {
+/** Everything in one list: tickets and stays, in date order. */
+export function Home() {
   const insets = useSafeAreaInsets();
-  const all = useStore((s) => s.stubs);
-  const stubs = useMemo(() => all.filter((s) => (s.kind === 'stay') === (mode === 'stays')), [all, mode]);
-  const isStays = mode === 'stays';
-  const historyCount = useStore((s) => s.history.length);
+  const stubs = useStore((s) => s.stubs);
   const keepPastDays = useStore((s) => s.settings.keepPastDays);
   const today = dayKey();
   const [now, setNow] = useState(() => Date.now());
@@ -76,18 +71,18 @@ export function Home({ mode }: { mode: HomeMode }) {
   // First launch: show how Stash works.
   const introSeen = useStore((s) => s.settings.introSeen);
   useEffect(() => {
-    if (!introSeen && !isStays) {
+    if (!introSeen) {
       const t = setTimeout(() => router.push('/intro'), 50);
       return () => clearTimeout(t);
     }
-  }, [introSeen, isStays]);
+  }, [introSeen]);
 
   // Re-check every minute so tickets slide into Archive a few hours after they start.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(t);
   }, []);
-  const add = useAddTicket(mode);
+  const add = useAddTicket();
   const empty = stubs.length === 0;
 
   return (
@@ -100,24 +95,23 @@ export function Home({ mode }: { mode: HomeMode }) {
             <Logo size={58} />
             <View>
               <Text style={label}>{fmt.short(today)}</Text>
-              <Text style={styles.wordmark}>{isStays ? 'Stays' : 'Stash'}</Text>
+              <Text style={styles.wordmark}>Stash</Text>
             </View>
           </View>
           <View style={styles.headerButtons}>
             <RoundButton label="Settings" color="transparent" onPress={() => router.push('/settings')}>
               <Icon name="settings" color={colors.ink} stroke={2.2} />
             </RoundButton>
-            <RoundButton label={isStays ? 'Add a stay' : 'Add ticket'} onPress={add.open} size={48}>
+            <RoundButton label="Add ticket" onPress={add.open} size={48}>
               {add.busy ? <ActivityIndicator color={colors.accent} /> : <Icon name="plus" color={colors.accent} size={22} />}
             </RoundButton>
           </View>
         </View>
 
-        {!isStays && <ScreenshotCards />}
-        {!isStays && <NotifyPrompt />}
+        <ScreenshotCards />
+        <NotifyPrompt />
 
-        {empty && isStays && <StayEmptyState onScreens={add.screens} onPaste={() => router.push('/paste')} />}
-        {empty && !isStays && (
+        {empty && (
           <EmptyState
             onAdd={add.open}
             onSample={() => {
@@ -176,19 +170,14 @@ export function Home({ mode }: { mode: HomeMode }) {
 
         {!empty && (
           <View style={styles.section}>
-            <Text style={label}>{isStays ? 'Add a stay' : 'Add a ticket'}</Text>
+            <Text style={label}>Add</Text>
             <View style={styles.tiles}>
-              {(isStays
-                ? [
-                    { icon: 'doc' as const, text: 'Paste host’s message', onPress: () => router.push('/paste') },
-                    { icon: 'photo' as const, text: 'Check-in screenshots', onPress: add.screens },
-                  ]
-                : [
-                    { icon: 'doc' as const, text: 'From Mail', onPress: () => router.push('/mail-help') },
-                    { icon: 'photo' as const, text: 'Photos', onPress: add.photos },
-                    { icon: 'doc' as const, text: 'PDF from Files', onPress: add.pdf },
-                  ]
-              ).map((t) => (
+              {[
+                { icon: 'doc' as const, text: 'From Mail', onPress: () => router.push('/mail-help') },
+                { icon: 'photo' as const, text: 'Photos', onPress: add.photos },
+                { icon: 'doc' as const, text: 'PDF from Files', onPress: add.pdf },
+                { icon: 'home' as const, text: 'Check-in details', onPress: () => router.push('/paste') },
+              ].map((t) => (
                 <Pressable
                   key={t.text}
                   accessibilityRole="button"
@@ -203,13 +192,6 @@ export function Home({ mode }: { mode: HomeMode }) {
               ))}
             </View>
           </View>
-        )}
-
-        {!isStays && historyCount >= 3 && (
-          <Pressable accessibilityRole="button" onPress={() => router.push('/recap')} style={({ pressed }) => [styles.recapRow, pressed && { opacity: 0.8 }]}>
-            <Text style={styles.recapText}>Your {new Date().getFullYear()} in tickets</Text>
-            <Icon name="arrow" size={16} color={colors.accent} />
-          </Pressable>
         )}
 
         {groups.archive.length > 0 && (
@@ -233,9 +215,7 @@ export function Home({ mode }: { mode: HomeMode }) {
                 onPress={() =>
                   Alert.alert(
                     'Clear the archive?',
-                    isStays
-                      ? `Deletes ${groups.archive.length} past stay${groups.archive.length > 1 ? 's' : ''} for good.`
-                      : `Deletes ${groups.archive.length} used or past ticket${groups.archive.length > 1 ? 's' : ''} for good.`,
+                    `Deletes ${groups.archive.length} used or past item${groups.archive.length > 1 ? 's' : ''} for good.`,
                     [
                       { text: 'Cancel', style: 'cancel' },
                       { text: 'Clear', style: 'destructive', onPress: clearPast },
@@ -378,41 +358,6 @@ function SwipeToDelete({ stub, children }: { stub: Stub; children: React.ReactNo
   );
 }
 
-function StayEmptyState({ onScreens, onPaste }: { onScreens: () => void; onPaste: () => void }) {
-  return (
-    <Perforated
-      color={colors.paper}
-      ground={colors.ground}
-      style={{ marginTop: 8 }}
-      top={
-        <View style={styles.emptyTop}>
-          <Text style={label}>Check-in</Text>
-          <Text style={styles.emptyTitle}>Where you’re staying</Text>
-          <Text style={styles.emptyBody}>
-            Airbnb, hotel or campsite: screenshot the check-in screens, or copy the host’s message. Stash keeps the address,
-            door code and Wi-Fi in one place, and it stays here until check-out.
-          </Text>
-        </View>
-      }
-      bottom={
-        <View style={styles.emptyBottom}>
-          <Pressable accessibilityRole="button" onPress={onPaste} style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
-            <Icon name="plus" size={18} color={colors.ink} />
-            <Text style={styles.primaryText}>Paste the host’s message</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onScreens}
-            style={({ pressed }) => [styles.sampleButton, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.sampleText}>Add check-in screenshots</Text>
-          </Pressable>
-        </View>
-      }
-    />
-  );
-}
-
 function EmptyState({ onAdd, onSample }: { onAdd: () => void; onSample: () => void }) {
   return (
     <Perforated
@@ -488,10 +433,8 @@ const styles = StyleSheet.create({
   },
   pillText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink },
 
-  recapRow: { backgroundColor: colors.ink, borderRadius: 14, minHeight: 56, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  recapText: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.paper },
-  tiles: { flexDirection: 'row', gap: 10 },
-  tile: { flex: 1, backgroundColor: colors.paper, borderRadius: 14, padding: 14, gap: 10, minHeight: 92 },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tile: { flexBasis: '47%', flexGrow: 1, backgroundColor: colors.paper, borderRadius: 14, padding: 14, gap: 10, minHeight: 92 },
   tileIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.ground, alignItems: 'center', justifyContent: 'center' },
   tileText: { fontFamily: fonts.bodyBold, fontSize: 14, lineHeight: 18, color: colors.ink },
   row: { backgroundColor: colors.paper, borderRadius: 14, flexDirection: 'row', alignItems: 'stretch', height: 76 },

@@ -7,7 +7,7 @@ import { importFiles, type IncomingFile } from './importer';
 import { pickDocument, pickPhotos } from './pickers';
 
 /** "+" button flow: choose a source, scan it, open the confirm screen. */
-export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
+export function useAddTicket() {
   const [busy, setBusy] = useState(false);
 
   async function run(pick: () => Promise<IncomingFile[]>, asStay = false) {
@@ -56,38 +56,14 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
   const screens = () => run(pickPhotos, true);
   const photos = () => run(pickPhotos);
 
-  function openStays() {
-    const options = ['Paste the host’s message', 'Check-in screenshots', 'Cancel'];
-    const handle = (i: number) => {
-      if (i === 0) router.push('/paste');
-      if (i === 1) screens();
-    };
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex: options.length - 1,
-          title: 'Add a stay',
-          message: 'In Airbnb: Messages → press and hold the host’s message → Copy. Or screenshot the check-in screens.',
-        },
-        handle,
-      );
-    } else {
-      Alert.alert('Add a stay', undefined, [
-        ...options.slice(0, -1).map((text, i) => ({ text, onPress: () => handle(i) })),
-        { text: 'Cancel', style: 'cancel' as const },
-      ]);
-    }
-  }
-
   function open() {
-    if (mode === 'stays') return openStays();
     const ios = Platform.OS === 'ios';
     const options = [
       ...(isPaperScanAvailable ? ['Scan a paper ticket'] : []),
       'Photos',
       'PDF from Files',
       ...(ios ? ['Ticket link'] : []),
+      'Paste check-in details',
       'Cancel',
     ];
     const handle = (i: number) => {
@@ -96,6 +72,7 @@ export function useAddTicket(mode: 'tickets' | 'stays' = 'tickets') {
       if (choice === 'Photos') run(pickPhotos);
       if (choice === 'PDF from Files') run(pickDocument);
       if (choice === 'Ticket link') askForLink();
+      if (choice === 'Paste check-in details') router.push('/paste');
     };
     if (ios) {
       ActionSheetIOS.showActionSheetWithOptions(

@@ -39,14 +39,14 @@ export default function Add() {
         leave();
         if (saved) {
           // Land on the tab it lives in.
-          router.navigate(saved.kind === 'stay' ? '/stays' : '/');
+          router.navigate('/');
           showToast(
             isArchived(saved)
               ? 'Saved to Archive: that date has passed.'
               : saved.kind === 'stay'
                 ? saved.reminderId
-                  ? 'Saved to Stays. Reminder set for check-in.'
-                  : 'Saved to Stays.'
+                  ? 'Stay saved. Reminder set for check-in.'
+                  : 'Stay saved.'
                 : saved.reminderId
                   ? 'Saved. Reminder set.'
                   : 'Saved.',

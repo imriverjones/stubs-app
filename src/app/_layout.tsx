@@ -91,7 +91,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ground }}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.ground } }}>
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="index" />
         <Stack.Screen name="ticket/[id]" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit/[id]" options={{ presentation: 'modal' }} />
@@ -102,7 +102,6 @@ export default function RootLayout() {
         <Stack.Screen name="mail-help" options={{ presentation: 'modal' }} />
         <Stack.Screen name="web" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="import" options={{ animation: 'fade' }} />
-        <Stack.Screen name="recap" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="intro" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack>
       <ToastHost />
